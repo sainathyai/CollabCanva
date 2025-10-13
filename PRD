@@ -1,0 +1,60 @@
+PRD: Real-Time Collaborative Whiteboard (MVP)
+1. Introduction & Vision
+This document outlines the requirements for the Minimum Viable Product (MVP) of a real-time, collaborative whiteboard application. The project aims to create a shared digital canvas where multiple users can interact simultaneously.
+
+The vision for this MVP is to establish the core foundational layer for real-time, multi-user collaboration. This includes seamless synchronization, user presence, and a stable, deployed environment, which will serve as the basis for future AI-powered features.
+
+2. Goals & Objectives
+The primary goal of this MVP is to deliver a functional, real-time collaborative experience for at least two concurrent users.
+
+Objective 1: Achieve real-time synchronization of canvas states between all active users.
+
+Objective 2: Implement presence awareness so users can see who else is active on the canvas.
+
+Objective 3: Establish basic user authentication to identify individual users.
+
+Objective 4: Successfully deploy the application to a live, accessible staging environment.
+
+3. Features & Functionality
+The MVP must be built from scratch and include the following features:
+
+Core Functionality
+Shared Canvas: A single, shared whiteboard interface accessible to all logged-in users.
+
+Real-Time Sync: Any action or drawing made by one user on the canvas must be visible to all other active users in real-time (e.g., within milliseconds).
+
+User & Presence
+Basic User Authentication: Users must be able to log in to the application to be identified. A simple email/password or social login is sufficient.
+
+Live Cursors: Each active user's mouse cursor must be visible to all other users on the canvas.
+
+Cursor Name Labels: The cursor for each user must display their name, similar to the functionality seen in Google Docs or Figma, allowing for easy identification.
+
+Deployment
+Staging Environment: The complete web application must be deployed to a publicly accessible URL for grading and review.
+
+4. Technical Stack & Recommendations
+While participants have flexibility, the following technologies are recommended to support the required architecture:
+
+Backend & Database: Firebase (Firestore) is recommended for its real-time database capabilities. Alternatives like MongoDB or PostgreSQL (via Docker) on a free tier are also acceptable.
+
+Real-Time Communication: A websocket server is required to manage and persist the canvas state and handle live user interactions.
+
+Code Repository: A personal GitHub repository must be used and made available for grading.
+
+Deployment: While not a strict requirement, AWS is the preferred cloud platform, as costs will be covered.
+
+5. What's Out of Scope for MVP
+To ensure focus on the core collaborative foundation, the following features are explicitly not required for the MVP submission:
+
+The AI layer or any AI agent integration.
+
+Advanced drawing tools (e.g., shapes, text boxes, color palettes).
+
+Chat functionality.
+
+Version history or saving/loading of boards.
+
+Advanced user profiles or permissions.
+
+Cross-platform mobile applications (a web-based application is the only required output).
