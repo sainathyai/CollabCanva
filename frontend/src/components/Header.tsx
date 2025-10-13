@@ -1,15 +1,31 @@
-import { useLocation } from 'react-router-dom'
+import { useState, useEffect } from 'react'
+import { useLocation, useNavigate } from 'react-router-dom'
+import { onAuthChange, signOut as authSignOut } from '../lib/auth'
+import type { User } from 'firebase/auth'
 
 function Header() {
   const location = useLocation()
+  const navigate = useNavigate()
+  const [user, setUser] = useState<User | null>(null)
   
-  // TODO: Get user from auth context in PR3
-  const user = null
-  const displayName = user ? 'User Name' : null
+  useEffect(() => {
+    // Subscribe to auth state changes
+    const unsubscribe = onAuthChange((currentUser) => {
+      setUser(currentUser)
+    })
+    
+    return () => unsubscribe()
+  }, [])
 
-  const handleSignOut = () => {
-    // TODO: Implement sign out in PR3
-    console.log('Sign out - to be implemented in PR3')
+  const displayName = user?.displayName || user?.email || 'User'
+
+  const handleSignOut = async () => {
+    try {
+      await authSignOut()
+      navigate('/login')
+    } catch (error) {
+      console.error('Error signing out:', error)
+    }
   }
 
   // Don't show header on login page
@@ -25,7 +41,7 @@ function Header() {
         </div>
         
         <div className="header-right">
-          {displayName && (
+          {user && (
             <>
               <span className="user-name">{displayName}</span>
               <button className="btn-secondary" onClick={handleSignOut}>

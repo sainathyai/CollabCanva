@@ -1,13 +1,26 @@
 import { useState } from 'react'
+import { useNavigate } from 'react-router-dom'
+import { signInWithGoogle } from '../lib/auth'
 
 function Login() {
   const [loading, setLoading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const navigate = useNavigate()
 
   const handleGoogleSignIn = async () => {
     setLoading(true)
-    // TODO: Implement Firebase Google sign-in in PR3
-    console.log('Sign in with Google - to be implemented in PR3')
-    setLoading(false)
+    setError(null)
+    
+    try {
+      await signInWithGoogle()
+      // Redirect to canvas on successful sign-in
+      navigate('/canvas')
+    } catch (err) {
+      console.error('Sign in error:', err)
+      setError('Failed to sign in with Google. Please try again.')
+    } finally {
+      setLoading(false)
+    }
   }
 
   return (
@@ -19,6 +32,19 @@ function Login() {
           
           <div className="login-content">
             <p>Sign in to start collaborating</p>
+            
+            {error && (
+              <div className="error-message" style={{ 
+                color: '#dc3545', 
+                marginBottom: '1rem', 
+                padding: '0.5rem', 
+                backgroundColor: '#f8d7da', 
+                borderRadius: '4px' 
+              }}>
+                {error}
+              </div>
+            )}
+            
             <button 
               className="btn-google" 
               onClick={handleGoogleSignIn}
@@ -30,7 +56,7 @@ function Login() {
 
           <div className="login-footer">
             <p className="text-muted">
-              Authentication will be implemented in PR3
+              Secure authentication powered by Firebase
             </p>
           </div>
         </div>

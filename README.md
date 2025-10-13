@@ -84,10 +84,44 @@ Open `http://localhost:5173` in your browser.
 
 ## Firebase Setup
 
-1. Go to [Firebase Console](https://console.firebase.google.com/)
-2. Create a new project or select existing
-3. Enable **Authentication** → Sign-in method → **Google**
-4. Copy your project credentials to `.env` files
+### Step-by-Step Firebase Configuration
+
+1. **Create a Firebase Project**
+   - Go to [Firebase Console](https://console.firebase.google.com/)
+   - Click "Add project" or select an existing project
+   - Follow the setup wizard
+
+2. **Enable Google Authentication**
+   - In your Firebase project, go to **Authentication** → **Sign-in method**
+   - Click on **Google** provider
+   - Toggle **Enable** switch
+   - Add your project's support email
+   - Click **Save**
+
+3. **Get Your Firebase Configuration**
+   - Go to **Project Settings** (gear icon) → **General**
+   - Scroll down to **Your apps** section
+   - Click the web icon `</>` to add a web app (if you haven't already)
+   - Register your app with a nickname (e.g., "CollabCanvas")
+   - Copy the `firebaseConfig` object values
+
+4. **Configure Environment Variables**
+   - Copy `.env.example` to `.env` in the `frontend/` directory:
+     ```bash
+     cp .env.example frontend/.env
+     ```
+   - Edit `frontend/.env` and add your Firebase credentials:
+     ```bash
+     VITE_FIREBASE_API_KEY=AIzaSy...your_actual_api_key
+     VITE_FIREBASE_AUTH_DOMAIN=your-project-id.firebaseapp.com
+     VITE_FIREBASE_PROJECT_ID=your-project-id
+     VITE_WS_URL=ws://localhost:8080
+     ```
+
+5. **Authorize Your Domain**
+   - In Firebase Console → **Authentication** → **Settings** → **Authorized domains**
+   - Add `localhost` (should be there by default)
+   - When deploying, add your production domain (e.g., `your-app.vercel.app`)
 
 ## Deployment
 
