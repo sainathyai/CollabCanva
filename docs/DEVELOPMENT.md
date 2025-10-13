@@ -48,10 +48,9 @@ This ensures files always use LF (Unix) line endings, even on Windows.
 - Click "Install Recommended Extensions" when prompted
 - Or: Press `Cmd/Ctrl + Shift + P` → "Extensions: Show Recommended Extensions"
 
-**Required extensions:**
-- ESLint
-- Prettier
-- EditorConfig
+**Recommended extensions:**
+- ESLint (auto-fix on save)
+- EditorConfig (consistent formatting)
 
 ## Initial Setup (Both Machines)
 
@@ -107,16 +106,15 @@ cd frontend; npm run dev
 
 ### Code Formatting
 
-**Auto-format on save** is enabled in `.vscode/settings.json`
+**Auto-format on save** is enabled in `.vscode/settings.json` using built-in formatters:
+- TypeScript/JavaScript: Built-in TS formatter
+- JSON: Built-in JSON formatter
+- CSS: Built-in CSS formatter
+- HTML: Built-in HTML formatter
 
 **Manual format:**
-```bash
-# Format all files
-npx prettier --write .
-
-# Check formatting
-npx prettier --check .
-```
+- Press `Shift + Option + F` (Mac) or `Shift + Alt + F` (Windows)
+- Or: Right-click → "Format Document"
 
 ### Linting
 
@@ -195,8 +193,7 @@ sudo chown -R $(whoami) ~/.npm
 ### What Gets Committed:
 ✅ `.nvmrc` - Node version
 ✅ `.editorconfig` - Editor settings
-✅ `.prettierrc` - Code formatting
-✅ `.vscode/settings.json` - Workspace settings
+✅ `.vscode/settings.json` - Workspace settings (built-in formatters)
 ✅ `.vscode/extensions.json` - Recommended extensions
 ✅ Source code
 ✅ Configuration files
