@@ -45,6 +45,7 @@ class WebSocketClient {
   private reconnectDelay = 1000
   private messageHandlers: Set<MessageHandler> = new Set()
   private isIntentionallyClosed = false
+  private connectionReady = false
 
   constructor(url: string) {
     this.url = url
@@ -61,6 +62,7 @@ class WebSocketClient {
 
         this.ws.onopen = () => {
           console.log('WebSocket connected')
+          this.connectionReady = true
           this.reconnectAttempts = 0
           resolve()
         }
@@ -81,6 +83,7 @@ class WebSocketClient {
 
         this.ws.onclose = () => {
           console.log('WebSocket closed')
+          this.connectionReady = false
           this.ws = null
           
           // Attempt to reconnect if not intentionally closed
@@ -115,10 +118,28 @@ class WebSocketClient {
    * Send a message to the server
    */
   send(message: WSMessage): void {
-    if (this.ws && this.ws.readyState === WebSocket.OPEN) {
+    if (this.ws && this.ws.readyState === WebSocket.OPEN && this.connectionReady) {
       this.ws.send(JSON.stringify(message))
     } else {
-      console.warn('WebSocket is not connected, cannot send message')
+      console.warn('WebSocket is not ready, queueing message', {
+        readyState: this.ws?.readyState,
+        connectionReady: this.connectionReady,
+        messageType: message.type
+      })
+      // Wait for connection to be ready
+      const maxRetries = 10
+      let retries = 0
+      const retryInterval = setInterval(() => {
+        retries++
+        if (this.ws && this.ws.readyState === WebSocket.OPEN && this.connectionReady) {
+          console.log('Connection ready, sending queued message:', message.type)
+          this.ws.send(JSON.stringify(message))
+          clearInterval(retryInterval)
+        } else if (retries >= maxRetries) {
+          console.error('Failed to send message after retries:', message.type)
+          clearInterval(retryInterval)
+        }
+      }, 200)
     }
   }
 
