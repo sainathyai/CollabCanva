@@ -14,6 +14,7 @@ function Canvas() {
   const [objects, setObjects] = useState<CanvasObject[]>([])
   const [selectedObjectId, setSelectedObjectId] = useState<string | null>(null)
   const [isConnected, setIsConnected] = useState(false)
+  const [isAuthenticated, setIsAuthenticated] = useState(false)
   const [isDragging, setIsDragging] = useState(false)
   const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 })
   
@@ -97,6 +98,7 @@ function Canvas() {
 
       case MessageType.AUTH_SUCCESS:
         console.log('Authenticated successfully')
+        setIsAuthenticated(true)
         break
 
       case MessageType.ERROR:
@@ -120,6 +122,11 @@ function Canvas() {
   const handleAddRectangle = () => {
     if (!user) {
       alert('You must be logged in to add objects')
+      return
+    }
+
+    if (!isAuthenticated) {
+      alert('Please wait... authenticating with server')
       return
     }
 
@@ -169,7 +176,7 @@ function Canvas() {
 
   // Handle mouse move for dragging
   const handleMouseMove = (e: React.MouseEvent<HTMLCanvasElement>) => {
-    if (!isDragging || !selectedObjectId) return
+    if (!isDragging || !selectedObjectId || !isAuthenticated) return
 
     const canvas = canvasRef.current
     if (!canvas) return
@@ -194,6 +201,11 @@ function Canvas() {
 
   // Handle delete selected object
   const handleDeleteSelected = () => {
+    if (!isAuthenticated) {
+      alert('Please wait... authenticating with server')
+      return
+    }
+    
     if (selectedObjectId) {
       wsClient.deleteObject(selectedObjectId)
       setSelectedObjectId(null)
@@ -203,19 +215,23 @@ function Canvas() {
   return (
     <div className="canvas-page">
       <div className="canvas-toolbar">
-        <button className="btn-primary" onClick={handleAddRectangle}>
+        <button 
+          className="btn-primary" 
+          onClick={handleAddRectangle}
+          disabled={!isAuthenticated}
+        >
           Add Rectangle
         </button>
         <button
           className="btn-secondary"
           onClick={handleDeleteSelected}
-          disabled={!selectedObjectId}
+          disabled={!selectedObjectId || !isAuthenticated}
         >
           Delete Selected
         </button>
         <div className="toolbar-info">
-          <span className={isConnected ? 'status-connected' : 'status-disconnected'}>
-            {isConnected ? '● Connected' : '○ Disconnected'}
+          <span className={isConnected && isAuthenticated ? 'status-connected' : 'status-disconnected'}>
+            {isConnected && isAuthenticated ? '● Connected' : isConnected ? '○ Authenticating...' : '○ Disconnected'}
           </span>
           <span className="text-muted">
             Objects: {objects.length}
