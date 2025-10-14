@@ -26,12 +26,12 @@ export function setupWebSocket(server: HTTPServer): WebSocketServer {
     })
 
     // Handle errors
-    ws.on('error', (error) => {
+    ws.on('error', (error: Error) => {
       logger.error('WebSocket error', { error })
     })
   })
 
-  wss.on('error', (error) => {
+  wss.on('error', (error: Error) => {
     logger.error('WebSocket server error', { error })
   })
 
