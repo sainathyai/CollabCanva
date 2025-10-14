@@ -171,32 +171,185 @@ The backend is a Node.js WebSocket server that handles:
 
 ## Deployment
 
-### Frontend (Vercel)
+### Prerequisites for Deployment
 
-1. Push code to GitHub
-2. Import repository in [Vercel](https://vercel.com)
-3. Set root directory to `frontend/`
-4. Add environment variables in Vercel dashboard
-5. Deploy
+- GitHub account
+- Vercel account (for frontend)
+- Render/Fly.io/Railway account (for backend)
+- Firebase project configured
 
-### Backend (Render/Fly.io)
+### Frontend Deployment (Vercel)
 
-**Render:**
-1. Create new Web Service
-2. Connect GitHub repository
-3. Set root directory to `backend/`
-4. Add environment variables
-5. Deploy
+1. **Push code to GitHub**
+   ```bash
+   git push origin main
+   ```
 
-**Fly.io:**
-```bash
-cd backend
-fly launch
-fly secrets set ALLOWED_ORIGINS=https://your-frontend.vercel.app
-fly deploy
-```
+2. **Import to Vercel**
+   - Go to [Vercel Dashboard](https://vercel.com/dashboard)
+   - Click "Add New..." → "Project"
+   - Import your GitHub repository
+   - Configure project:
+     - **Framework Preset:** Vite
+     - **Root Directory:** `frontend`
+     - **Build Command:** `npm run build`
+     - **Output Directory:** `dist`
 
-Update frontend `VITE_WS_URL` to point to deployed backend WSS URL.
+3. **Add Environment Variables**
+   In Vercel Project Settings → Environment Variables, add:
+   ```
+   VITE_WS_URL=wss://your-backend-url.com
+   VITE_FIREBASE_API_KEY=your_firebase_api_key
+   VITE_FIREBASE_AUTH_DOMAIN=your_project.firebaseapp.com
+   VITE_FIREBASE_PROJECT_ID=your_project_id
+   VITE_FIREBASE_STORAGE_BUCKET=your_project.appspot.com
+   VITE_FIREBASE_MESSAGING_SENDER_ID=your_sender_id
+   VITE_FIREBASE_APP_ID=your_app_id
+   ```
+
+4. **Deploy**
+   - Click "Deploy"
+   - Your frontend will be available at `https://your-app.vercel.app`
+
+5. **Update Firebase Authorized Domains**
+   - Go to Firebase Console → Authentication → Settings → Authorized domains
+   - Add your Vercel domain: `your-app.vercel.app`
+
+### Backend Deployment
+
+#### Option 1: Render
+
+1. **Create New Web Service**
+   - Go to [Render Dashboard](https://dashboard.render.com/)
+   - Click "New +" → "Web Service"
+   - Connect your GitHub repository
+
+2. **Configure Service**
+   - **Name:** collabcanva-backend
+   - **Root Directory:** `backend`
+   - **Environment:** Node
+   - **Build Command:** `npm install && npm run build`
+   - **Start Command:** `node dist/index.js`
+   - **Plan:** Free (or Starter for production)
+
+3. **Add Environment Variables**
+   In Service → Environment tab, add:
+   ```
+   NODE_ENV=production
+   PORT=8080
+   ALLOWED_ORIGINS=https://your-app.vercel.app
+   FIREBASE_PROJECT_ID=your_project_id
+   ```
+
+4. **Deploy**
+   - Click "Create Web Service"
+   - Your backend will be available at `https://collabcanva-backend.onrender.com`
+   - **Note:** Use `wss://` (not `ws://`) for the WebSocket URL
+
+5. **Update Frontend**
+   - Go back to Vercel
+   - Update `VITE_WS_URL` to `wss://collabcanva-backend.onrender.com`
+   - Redeploy frontend
+
+#### Option 2: Fly.io
+
+1. **Install Fly CLI**
+   ```bash
+   # macOS/Linux
+   curl -L https://fly.io/install.sh | sh
+   
+   # Windows (PowerShell)
+   powershell -Command "iwr https://fly.io/install.ps1 -useb | iex"
+   ```
+
+2. **Login to Fly**
+   ```bash
+   fly auth login
+   ```
+
+3. **Launch App**
+   ```bash
+   cd backend
+   fly launch
+   ```
+   - Choose app name: `collabcanva-backend`
+   - Choose region closest to your users
+   - Don't deploy yet (we need to set secrets first)
+
+4. **Set Environment Variables**
+   ```bash
+   fly secrets set NODE_ENV=production
+   fly secrets set ALLOWED_ORIGINS=https://your-app.vercel.app
+   fly secrets set FIREBASE_PROJECT_ID=your_project_id
+   ```
+
+5. **Deploy**
+   ```bash
+   fly deploy
+   ```
+   - Your backend will be available at `https://collabcanva-backend.fly.dev`
+
+6. **Update Frontend**
+   - Update Vercel environment variable `VITE_WS_URL` to `wss://collabcanva-backend.fly.dev`
+   - Redeploy
+
+#### Option 3: Docker (Self-Hosted)
+
+1. **Build Docker Image**
+   ```bash
+   cd backend
+   docker build -t collabcanva-backend .
+   ```
+
+2. **Run Container**
+   ```bash
+   docker run -d \
+     -p 8080:8080 \
+     -e NODE_ENV=production \
+     -e ALLOWED_ORIGINS=https://your-app.vercel.app \
+     -e FIREBASE_PROJECT_ID=your_project_id \
+     --name collabcanva-backend \
+     collabcanva-backend
+   ```
+
+3. **Check Logs**
+   ```bash
+   docker logs -f collabcanva-backend
+   ```
+
+### Post-Deployment Verification
+
+1. **Check Backend Health**
+   ```bash
+   curl https://your-backend-url.com/health
+   ```
+   Should return: `{"status":"ok",...}`
+
+2. **Test WebSocket Connection**
+   - Open browser console on your deployed frontend
+   - Check for WebSocket connection messages
+   - Should see "Connected to WebSocket server"
+
+3. **Run Smoke Tests**
+   - Follow steps in `docs/SMOKE_TEST.md`
+   - Test with multiple users in different browsers
+
+### Troubleshooting Deployment
+
+**WebSocket Connection Failed:**
+- Ensure backend is using `wss://` in production
+- Check CORS: `ALLOWED_ORIGINS` must include your frontend URL
+- Verify backend is running: check health endpoint
+
+**Authentication Not Working:**
+- Verify Firebase config in Vercel environment variables
+- Check Firebase Authorized Domains includes your Vercel domain
+- Ensure `FIREBASE_PROJECT_ID` is set in backend (if using Firebase auth)
+
+**Objects Not Syncing:**
+- Check browser console for WebSocket messages
+- Verify backend logs for incoming messages
+- Ensure authentication is successful before operations
 
 ## Testing
 

@@ -18,7 +18,7 @@ function Canvas() {
   const [isAuthenticated, setIsAuthenticated] = useState(false)
   const [isDragging, setIsDragging] = useState(false)
   const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 })
-  const [hasReceivedInitialState, setHasReceivedInitialState] = useState(false)
+  const [_hasReceivedInitialState, setHasReceivedInitialState] = useState(false)
   
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const user = getCurrentUser()
