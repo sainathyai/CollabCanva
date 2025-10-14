@@ -17,6 +17,7 @@ function Canvas() {
   const [isAuthenticated, setIsAuthenticated] = useState(false)
   const [isDragging, setIsDragging] = useState(false)
   const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 })
+  const [hasReceivedInitialState, setHasReceivedInitialState] = useState(false)
   
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const user = getCurrentUser()
@@ -28,14 +29,9 @@ function Canvas() {
         await wsClient.connect()
         setIsConnected(true)
         console.log('Connected to WebSocket server')
-
-        // Authenticate if we have a user token
-        if (user) {
-          const token = await user.getIdToken()
-          wsClient.authenticate(token)
-        }
       } catch (error) {
         console.error('Failed to connect to WebSocket:', error)
+        setIsConnected(false)
       }
     }
 
@@ -53,6 +49,22 @@ function Canvas() {
     }
   }, [user])
 
+  // Authenticate after receiving initial state
+  useEffect(() => {
+    if (hasReceivedInitialState && !isAuthenticated && user) {
+      const authenticate = async () => {
+        try {
+          const token = await user.getIdToken()
+          console.log('Sending authentication...')
+          wsClient.authenticate(token)
+        } catch (error) {
+          console.error('Failed to authenticate:', error)
+        }
+      }
+      authenticate()
+    }
+  }, [hasReceivedInitialState, isAuthenticated, user])
+
   // Handle incoming WebSocket messages
   const handleWebSocketMessage = (message: WSMessage) => {
     console.log('Received message:', message.type)
@@ -61,6 +73,7 @@ function Canvas() {
       case MessageType.INITIAL_STATE:
         if ('objects' in message) {
           setObjects(message.objects)
+          setHasReceivedInitialState(true)
           console.log('Loaded initial state:', message.objects.length, 'objects')
         }
         break
