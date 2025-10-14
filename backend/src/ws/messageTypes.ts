@@ -51,5 +51,48 @@ export interface ErrorMessage extends BaseMessage {
   error: string
 }
 
-export type WSMessage = AuthMessage | AuthSuccessMessage | AuthErrorMessage | ErrorMessage
+// Canvas Object interface
+export interface CanvasObject {
+  id: string
+  type: 'rectangle'
+  x: number
+  y: number
+  width: number
+  height: number
+  fill: string
+  createdBy: string
+  createdAt: string
+  updatedAt: string
+}
+
+// Object operation messages
+export interface ObjectCreateMessage extends BaseMessage {
+  type: MessageType.OBJECT_CREATE
+  object: CanvasObject
+}
+
+export interface ObjectUpdateMessage extends BaseMessage {
+  type: MessageType.OBJECT_UPDATE
+  object: Partial<CanvasObject> & { id: string }
+}
+
+export interface ObjectDeleteMessage extends BaseMessage {
+  type: MessageType.OBJECT_DELETE
+  objectId: string
+}
+
+export interface InitialStateMessage extends BaseMessage {
+  type: MessageType.INITIAL_STATE
+  objects: CanvasObject[]
+}
+
+export type WSMessage = 
+  | AuthMessage 
+  | AuthSuccessMessage 
+  | AuthErrorMessage 
+  | ErrorMessage
+  | ObjectCreateMessage
+  | ObjectUpdateMessage
+  | ObjectDeleteMessage
+  | InitialStateMessage
 

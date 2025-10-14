@@ -1,7 +1,16 @@
 import { WebSocket } from 'ws'
-import { WSMessage, MessageType, AuthMessage, ErrorMessage } from './messageTypes.js'
+import { 
+  WSMessage, 
+  MessageType, 
+  AuthMessage, 
+  ErrorMessage,
+  ObjectCreateMessage,
+  ObjectUpdateMessage,
+  ObjectDeleteMessage
+} from './messageTypes.js'
 import { verifyToken, UserClaims } from '../auth/verifyToken.js'
 import { logger } from '../utils/logger.js'
+import * as canvasState from '../state/canvasState.js'
 
 // Store authenticated users (in-memory for MVP)
 export const connectedClients = new Map<WebSocket, UserClaims>()
@@ -19,10 +28,17 @@ export async function handleMessage(ws: WebSocket, message: string) {
         await handleAuth(ws, data as AuthMessage)
         break
       
-      // TODO: Add more handlers in future PRs
-      // case MessageType.OBJECT_CREATE:
-      // case MessageType.OBJECT_UPDATE:
-      // case MessageType.PRESENCE_CURSOR:
+      case MessageType.OBJECT_CREATE:
+        handleObjectCreate(ws, data as ObjectCreateMessage)
+        break
+      
+      case MessageType.OBJECT_UPDATE:
+        handleObjectUpdate(ws, data as ObjectUpdateMessage)
+        break
+      
+      case MessageType.OBJECT_DELETE:
+        handleObjectDelete(ws, data as ObjectDeleteMessage)
+        break
       
       default:
         sendError(ws, `Unknown message type: ${data.type}`)
@@ -64,6 +80,97 @@ async function handleAuth(ws: WebSocket, message: AuthMessage) {
 }
 
 /**
+ * Handle object create message
+ */
+function handleObjectCreate(ws: WebSocket, message: ObjectCreateMessage) {
+  try {
+    const user = connectedClients.get(ws)
+    if (!user) {
+      sendError(ws, 'Not authenticated')
+      return
+    }
+
+    // Create object in state
+    const object = canvasState.createObject(message.object)
+    
+    // Broadcast to all clients including sender
+    const broadcastMessage = JSON.stringify({
+      type: MessageType.OBJECT_CREATE,
+      object,
+      timestamp: new Date().toISOString()
+    })
+    
+    broadcastToAll(broadcastMessage)
+    logger.info('Object created and broadcasted', { id: object.id, userId: user.uid })
+  } catch (error) {
+    logger.error('Error creating object', { error })
+    sendError(ws, 'Failed to create object')
+  }
+}
+
+/**
+ * Handle object update message
+ */
+function handleObjectUpdate(ws: WebSocket, message: ObjectUpdateMessage) {
+  try {
+    const user = connectedClients.get(ws)
+    if (!user) {
+      sendError(ws, 'Not authenticated')
+      return
+    }
+
+    // Update object in state (last-write-wins)
+    const object = canvasState.updateObject(message.object)
+    
+    // Broadcast to all clients including sender
+    const broadcastMessage = JSON.stringify({
+      type: MessageType.OBJECT_UPDATE,
+      object,
+      timestamp: new Date().toISOString()
+    })
+    
+    broadcastToAll(broadcastMessage)
+    logger.debug('Object updated and broadcasted', { id: object.id })
+  } catch (error) {
+    logger.error('Error updating object', { error })
+    sendError(ws, 'Failed to update object')
+  }
+}
+
+/**
+ * Handle object delete message
+ */
+function handleObjectDelete(ws: WebSocket, message: ObjectDeleteMessage) {
+  try {
+    const user = connectedClients.get(ws)
+    if (!user) {
+      sendError(ws, 'Not authenticated')
+      return
+    }
+
+    // Delete object from state
+    const deleted = canvasState.deleteObject(message.objectId)
+    
+    if (deleted) {
+      // Broadcast to all clients including sender
+      const broadcastMessage = JSON.stringify({
+        type: MessageType.OBJECT_DELETE,
+        objectId: message.objectId,
+        timestamp: new Date().toISOString()
+      })
+      
+      broadcastToAll(broadcastMessage)
+      logger.info('Object deleted and broadcasted', { id: message.objectId })
+    } else {
+      sendError(ws, 'Object not found')
+    }
+  } catch (error) {
+    logger.error('Error deleting object', { error })
+    sendError(ws, 'Failed to delete object')
+  }
+}
+
+/**
  * Send error message to client
  */
 function sendError(ws: WebSocket, error: string) {
@@ -92,6 +199,17 @@ export function handleDisconnect(ws: WebSocket) {
 export function broadcast(sender: WebSocket, message: string) {
   connectedClients.forEach((user, client) => {
     if (client !== sender && client.readyState === WebSocket.OPEN) {
+      client.send(message)
+    }
+  })
+}
+
+/**
+ * Broadcast message to all connected clients including sender
+ */
+export function broadcastToAll(message: string) {
+  connectedClients.forEach((user, client) => {
+    if (client.readyState === WebSocket.OPEN) {
       client.send(message)
     }
   })

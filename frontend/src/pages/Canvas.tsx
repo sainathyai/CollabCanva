@@ -1,38 +1,269 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useRef } from 'react'
+import { getCurrentUser } from '../lib/auth'
+import { wsClient, MessageType, type WSMessage } from '../lib/ws'
 import type { CanvasObject } from '../types'
+import {
+  createRectangle,
+  renderAllObjects,
+  findObjectAtPoint,
+  screenToCanvas,
+  getRandomColor
+} from '../lib/canvas'
 
 function Canvas() {
-  const [objects] = useState<CanvasObject[]>([])
+  const [objects, setObjects] = useState<CanvasObject[]>([])
+  const [selectedObjectId, setSelectedObjectId] = useState<string | null>(null)
+  const [isConnected, setIsConnected] = useState(false)
+  const [isAuthenticated, setIsAuthenticated] = useState(false)
+  const [isDragging, setIsDragging] = useState(false)
+  const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 })
+  const [hasReceivedInitialState, setHasReceivedInitialState] = useState(false)
+  
+  const canvasRef = useRef<HTMLCanvasElement>(null)
+  const user = getCurrentUser()
 
+  // Initialize WebSocket connection
   useEffect(() => {
-    // TODO: Connect to WebSocket in PR5
-    console.log('WebSocket connection - to be implemented in PR5')
-  }, [])
+    const connectWebSocket = async () => {
+      try {
+        await wsClient.connect()
+        setIsConnected(true)
+        console.log('Connected to WebSocket server')
+      } catch (error) {
+        console.error('Failed to connect to WebSocket:', error)
+        setIsConnected(false)
+      }
+    }
 
+    connectWebSocket()
+
+    // Subscribe to WebSocket messages
+    const unsubscribe = wsClient.onMessage((message: WSMessage) => {
+      handleWebSocketMessage(message)
+    })
+
+    // Cleanup on unmount
+    return () => {
+      unsubscribe()
+      wsClient.disconnect()
+    }
+  }, [user])
+
+  // Authenticate after receiving initial state
+  useEffect(() => {
+    if (hasReceivedInitialState && !isAuthenticated && user) {
+      const authenticate = async () => {
+        try {
+          const token = await user.getIdToken()
+          console.log('Sending authentication...')
+          wsClient.authenticate(token)
+        } catch (error) {
+          console.error('Failed to authenticate:', error)
+        }
+      }
+      authenticate()
+    }
+  }, [hasReceivedInitialState, isAuthenticated, user])
+
+  // Handle incoming WebSocket messages
+  const handleWebSocketMessage = (message: WSMessage) => {
+    console.log('Received message:', message.type)
+
+    switch (message.type) {
+      case MessageType.INITIAL_STATE:
+        if ('objects' in message) {
+          setObjects(message.objects)
+          setHasReceivedInitialState(true)
+          console.log('Loaded initial state:', message.objects.length, 'objects')
+        }
+        break
+
+      case MessageType.OBJECT_CREATE:
+        if ('object' in message) {
+          setObjects(prev => {
+            // Avoid duplicates
+            if (prev.find(o => o.id === message.object.id)) {
+              return prev
+            }
+            return [...prev, message.object]
+          })
+        }
+        break
+
+      case MessageType.OBJECT_UPDATE:
+        if ('object' in message) {
+          setObjects(prev =>
+            prev.map(obj =>
+              obj.id === message.object.id ? { ...obj, ...message.object } : obj
+            )
+          )
+        }
+        break
+
+      case MessageType.OBJECT_DELETE:
+        if ('objectId' in message) {
+          setObjects(prev => prev.filter(obj => obj.id !== message.objectId))
+          if (selectedObjectId === message.objectId) {
+            setSelectedObjectId(null)
+          }
+        }
+        break
+
+      case MessageType.AUTH_SUCCESS:
+        console.log('Authenticated successfully')
+        setIsAuthenticated(true)
+        break
+
+      case MessageType.ERROR:
+        console.error('WebSocket error:', 'error' in message ? message.error : 'Unknown error')
+        break
+    }
+  }
+
+  // Render canvas whenever objects change
+  useEffect(() => {
+    const canvas = canvasRef.current
+    if (!canvas) return
+
+    const ctx = canvas.getContext('2d')
+    if (!ctx) return
+
+    renderAllObjects(ctx, objects, selectedObjectId || undefined)
+  }, [objects, selectedObjectId])
+
+  // Handle adding a new rectangle
   const handleAddRectangle = () => {
-    // TODO: Send object.create message via WebSocket in PR6
-    console.log('Add rectangle - to be implemented in PR6')
+    if (!user) {
+      alert('You must be logged in to add objects')
+      return
+    }
+
+    if (!isAuthenticated) {
+      alert('Please wait... authenticating with server')
+      return
+    }
+
+    const newRect = createRectangle(
+      Math.random() * 600 + 50,
+      Math.random() * 400 + 50,
+      150,
+      100,
+      getRandomColor(),
+      user.uid
+    )
+
+    wsClient.createObject(newRect)
+  }
+
+  // Handle canvas click
+  const handleCanvasClick = (e: React.MouseEvent<HTMLCanvasElement>) => {
+    const canvas = canvasRef.current
+    if (!canvas || isDragging) return
+
+    const rect = canvas.getBoundingClientRect()
+    const { x, y } = screenToCanvas(e.clientX, e.clientY, rect)
+
+    const clickedObject = findObjectAtPoint(x, y, objects)
+    setSelectedObjectId(clickedObject ? clickedObject.id : null)
+  }
+
+  // Handle mouse down for dragging
+  const handleMouseDown = (e: React.MouseEvent<HTMLCanvasElement>) => {
+    if (!selectedObjectId) return
+
+    const canvas = canvasRef.current
+    if (!canvas) return
+
+    const rect = canvas.getBoundingClientRect()
+    const { x, y } = screenToCanvas(e.clientX, e.clientY, rect)
+
+    const selectedObj = objects.find(obj => obj.id === selectedObjectId)
+    if (selectedObj) {
+      setIsDragging(true)
+      setDragOffset({
+        x: x - selectedObj.x,
+        y: y - selectedObj.y
+      })
+    }
+  }
+
+  // Handle mouse move for dragging
+  const handleMouseMove = (e: React.MouseEvent<HTMLCanvasElement>) => {
+    if (!isDragging || !selectedObjectId || !isAuthenticated) return
+
+    const canvas = canvasRef.current
+    if (!canvas) return
+
+    const rect = canvas.getBoundingClientRect()
+    const { x, y } = screenToCanvas(e.clientX, e.clientY, rect)
+
+    const newX = x - dragOffset.x
+    const newY = y - dragOffset.y
+
+    wsClient.updateObject({
+      id: selectedObjectId,
+      x: newX,
+      y: newY
+    })
+  }
+
+  // Handle mouse up to stop dragging
+  const handleMouseUp = () => {
+    setIsDragging(false)
+  }
+
+  // Handle delete selected object
+  const handleDeleteSelected = () => {
+    if (!isAuthenticated) {
+      alert('Please wait... authenticating with server')
+      return
+    }
+    
+    if (selectedObjectId) {
+      wsClient.deleteObject(selectedObjectId)
+      setSelectedObjectId(null)
+    }
   }
 
   return (
     <div className="canvas-page">
       <div className="canvas-toolbar">
-        <button className="btn-primary" onClick={handleAddRectangle}>
+        <button 
+          className="btn-primary" 
+          onClick={handleAddRectangle}
+          disabled={!isAuthenticated}
+        >
           Add Rectangle
         </button>
+        <button
+          className="btn-secondary"
+          onClick={handleDeleteSelected}
+          disabled={!selectedObjectId || !isAuthenticated}
+        >
+          Delete Selected
+        </button>
         <div className="toolbar-info">
+          <span className={isConnected && isAuthenticated ? 'status-connected' : 'status-disconnected'}>
+            {isConnected && isAuthenticated ? '● Connected' : isConnected ? '○ Authenticating...' : '○ Disconnected'}
+          </span>
           <span className="text-muted">
-            Canvas functionality will be implemented in PR5-PR6
+            Objects: {objects.length}
           </span>
         </div>
       </div>
 
       <div className="canvas-container">
-        <div className="canvas-placeholder">
-          <h2>Canvas Area</h2>
-          <p>Real-time collaborative canvas</p>
-          <p className="text-muted">Objects: {objects.length}</p>
-        </div>
+        <canvas
+          ref={canvasRef}
+          width={800}
+          height={600}
+          className="canvas"
+          onClick={handleCanvasClick}
+          onMouseDown={handleMouseDown}
+          onMouseMove={handleMouseMove}
+          onMouseUp={handleMouseUp}
+          onMouseLeave={handleMouseUp}
+        />
       </div>
     </div>
   )

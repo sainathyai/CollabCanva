@@ -215,8 +215,21 @@ button:disabled {
   display: flex;
   align-items: center;
   justify-content: center;
-  overflow: hidden;
+  overflow: auto;
   position: relative;
+  padding: 2rem;
+}
+
+.canvas {
+  background: var(--surface);
+  border-radius: 0.5rem;
+  box-shadow: var(--shadow-lg);
+  cursor: crosshair;
+  border: 1px solid var(--border);
+}
+
+.canvas:active {
+  cursor: grabbing;
 }
 
 .canvas-placeholder {
@@ -239,6 +252,25 @@ button:disabled {
 .canvas-placeholder p {
   color: var(--text-secondary);
   margin: 0.5rem 0;
+}
+
+.status-connected {
+  color: #10B981;
+  font-weight: 500;
+  font-size: 0.875rem;
+}
+
+.status-disconnected {
+  color: var(--error);
+  font-weight: 500;
+  font-size: 0.875rem;
+}
+
+.toolbar-info {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 1.5rem;
 }
 
 /* Utilities */
