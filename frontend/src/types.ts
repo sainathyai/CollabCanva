@@ -16,8 +16,8 @@ export interface CanvasObject {
   height: number;
   fill: string;
   createdBy: string;
-  createdAt: number;
-  updatedAt: number;
+  createdAt: string; // ISO timestamp
+  updatedAt: string; // ISO timestamp
 }
 
 export interface Presence {
@@ -32,10 +32,13 @@ export interface Presence {
 }
 
 export type WSMessage = 
-  | { type: 'initialState'; objects: CanvasObject[]; presence: Presence[] }
-  | { type: 'object.create'; object: CanvasObject }
-  | { type: 'object.update'; object: CanvasObject }
-  | { type: 'object.delete'; id: string }
+  | { type: 'initialState'; objects: CanvasObject[]; timestamp: string }
+  | { type: 'object.create'; object: CanvasObject; timestamp: string }
+  | { type: 'object.update'; object: Partial<CanvasObject> & { id: string }; timestamp: string }
+  | { type: 'object.delete'; objectId: string; timestamp: string }
+  | { type: 'auth.success'; userId: string; displayName?: string; timestamp: string }
+  | { type: 'auth.error'; error: string; timestamp: string }
+  | { type: 'error'; error: string; timestamp: string }
   | { type: 'presence.join'; presence: Presence }
   | { type: 'presence.cursor'; userId: string; x: number; y: number }
   | { type: 'presence.leave'; userId: string };
