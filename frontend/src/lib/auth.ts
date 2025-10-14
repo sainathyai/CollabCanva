@@ -30,9 +30,9 @@ export function initializeFirebase() {
 // Get auth instance
 export function getAuthInstance() {
   if (!auth) {
-    return initializeFirebase()
+    return initializeFirebase()!
   }
-  return auth
+  return auth!
 }
 
 // Sign in with Google
