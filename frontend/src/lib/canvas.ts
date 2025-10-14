@@ -105,7 +105,7 @@ export function clamp(value: number, min: number, max: number): number {
 export function canvasToScreen(
   canvasX: number,
   canvasY: number,
-  canvasRect: DOMRect
+  _canvasRect: DOMRect
 ): { x: number; y: number } {
   return {
     x: canvasX,
