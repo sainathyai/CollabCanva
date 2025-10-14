@@ -2,8 +2,6 @@ import { WebSocketServer, WebSocket } from 'ws'
 import { Server as HTTPServer } from 'http'
 import { handleMessage, handleDisconnect } from './handlers.js'
 import { logger } from '../utils/logger.js'
-import { getAllObjects } from '../state/canvasState.js'
-import { MessageType } from './messageTypes.js'
 
 export function setupWebSocket(server: HTTPServer): WebSocketServer {
   const wss = new WebSocketServer({ server })
@@ -11,15 +9,8 @@ export function setupWebSocket(server: HTTPServer): WebSocketServer {
   wss.on('connection', (ws: WebSocket) => {
     logger.info('New WebSocket connection established')
 
-    // Send initial canvas state to new client
-    const initialObjects = getAllObjects()
-    const initialStateMessage = JSON.stringify({
-      type: MessageType.INITIAL_STATE,
-      objects: initialObjects,
-      timestamp: new Date().toISOString()
-    })
-    ws.send(initialStateMessage)
-    logger.debug('Sent initial state to client', { objectCount: initialObjects.length })
+    // NOTE: Initial canvas state is sent AFTER authentication
+    // See handleAuth() in handlers.ts for secure state hydration
 
     // Handle incoming messages
     ws.on('message', (data: Buffer) => {

@@ -29,6 +29,18 @@ function Canvas() {
         await wsClient.connect()
         setIsConnected(true)
         console.log('Connected to WebSocket server')
+        
+        // SECURITY FIX: Authenticate immediately after connection
+        // Server requires authentication before sending initial state
+        if (user) {
+          try {
+            const token = await user.getIdToken()
+            console.log('Sending authentication...')
+            wsClient.authenticate(token)
+          } catch (error) {
+            console.error('Failed to authenticate:', error)
+          }
+        }
       } catch (error) {
         console.error('Failed to connect to WebSocket:', error)
         setIsConnected(false)
@@ -48,22 +60,6 @@ function Canvas() {
       wsClient.disconnect()
     }
   }, [user])
-
-  // Authenticate after receiving initial state
-  useEffect(() => {
-    if (hasReceivedInitialState && !isAuthenticated && user) {
-      const authenticate = async () => {
-        try {
-          const token = await user.getIdToken()
-          console.log('Sending authentication...')
-          wsClient.authenticate(token)
-        } catch (error) {
-          console.error('Failed to authenticate:', error)
-        }
-      }
-      authenticate()
-    }
-  }, [hasReceivedInitialState, isAuthenticated, user])
 
   // Handle incoming WebSocket messages
   const handleWebSocketMessage = (message: WSMessage) => {
