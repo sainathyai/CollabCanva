@@ -115,7 +115,7 @@ The backend is a Node.js WebSocket server that handles:
    ```bash
    npm run dev
    ```
-   
+
    You should see:
    ```
    Server running on port 8080
@@ -257,7 +257,7 @@ The backend is a Node.js WebSocket server that handles:
    ```bash
    # macOS/Linux
    curl -L https://fly.io/install.sh | sh
-   
+
    # Windows (PowerShell)
    powershell -Command "iwr https://fly.io/install.ps1 -useb | iex"
    ```
@@ -401,7 +401,8 @@ Comprehensive documentation is organized in the `docs/` folder:
 - **[Prompts.md](docs/Prompts.md)** - Development prompts and context
 
 ### Architecture & Technical
-- **[architecture.md](docs/architecture.md)** - System architecture overview
+- **[ARCHITECTURE_DETAILED.md](docs/ARCHITECTURE_DETAILED.md)** - 🆕 Complete architecture with Mermaid diagrams
+- **[architecture.md](docs/architecture.md)** - System architecture overview (original)
 - **[DEPLOYMENT_SUMMARY.md](docs/DEPLOYMENT_SUMMARY.md)** - Complete deployment status and results
 
 ### Setup Guides
