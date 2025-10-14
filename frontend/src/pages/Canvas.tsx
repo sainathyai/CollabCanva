@@ -26,7 +26,7 @@ function Canvas() {
   const [isAuthenticated, setIsAuthenticated] = useState(false)
   const [isDragging, setIsDragging] = useState(false)
   const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 })
-  const [hasReceivedInitialState, setHasReceivedInitialState] = useState(false)
+  const [, setHasReceivedInitialState] = useState(false)
   const [presences, setPresences] = useState<Map<string, Presence>>(new Map())
   const [canvasOffset, setCanvasOffset] = useState({ left: 0, top: 0 })
   
@@ -88,7 +88,7 @@ function Canvas() {
         // Load initial presence state
         if ('presence' in message && message.presence) {
           const presenceMap = new Map<string, Presence>()
-          message.presence.forEach(p => {
+          message.presence.forEach((p: Presence) => {
             presenceMap.set(p.userId, { ...p, color: getUserColor(p.userId) })
           })
           setPresences(presenceMap)
@@ -132,7 +132,7 @@ function Canvas() {
         setIsAuthenticated(true)
         break
 
-      case 'presence.join':
+      case MessageType.PRESENCE_JOIN:
         if ('presence' in message) {
           setPresences(prev => {
             const updated = new Map(prev)
@@ -143,7 +143,7 @@ function Canvas() {
         }
         break
 
-      case 'presence.cursor':
+      case MessageType.PRESENCE_CURSOR:
         if ('userId' in message && 'x' in message && 'y' in message) {
           setPresences(prev => {
             const updated = new Map(prev)
@@ -156,7 +156,7 @@ function Canvas() {
         }
         break
 
-      case 'presence.leave':
+      case MessageType.PRESENCE_LEAVE:
         if ('userId' in message) {
           setPresences(prev => {
             const updated = new Map(prev)

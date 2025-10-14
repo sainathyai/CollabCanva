@@ -12,6 +12,11 @@ export enum MessageType {
   OBJECT_DELETE = 'object.delete',
   INITIAL_STATE = 'initialState',
   
+  // Presence
+  PRESENCE_JOIN = 'presence.join',
+  PRESENCE_CURSOR = 'presence.cursor',
+  PRESENCE_LEAVE = 'presence.leave',
+  
   // Error
   ERROR = 'error'
 }
