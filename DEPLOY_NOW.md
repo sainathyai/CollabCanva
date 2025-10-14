@@ -30,8 +30,8 @@ Region: Oregon (US West) or closest to you
 Branch: main (or pr8-deployment for testing)
 Root Directory: backend
 Environment: Node
-Build Command: npm install && npm run build
-Start Command: node dist/index.js
+Build Command: npm ci --include=dev && npm run build
+Start Command: NODE_ENV=production node dist/server.js
 Instance Type: Free
 ```
 
@@ -39,13 +39,14 @@ Instance Type: Free
 
 Click **"Advanced"** → **"Add Environment Variable"**
 
-Add these 3 variables:
+Add these 2 variables:
 
 ```
-NODE_ENV=production
 PORT=8080
 FIREBASE_PROJECT_ID=your-firebase-project-id
 ```
+
+**Note:** We DON'T add `NODE_ENV` as an environment variable because it's set in the start command.
 
 **IMPORTANT:** Leave `ALLOWED_ORIGINS` empty for now (we'll add it after frontend deployment)
 
