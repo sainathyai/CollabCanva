@@ -4,7 +4,8 @@ This document provides manual test scenarios to validate the MVP against accepta
 
 ## Prerequisites
 
-- Staging URL is accessible
+- **Staging URL**: https://collab-canva-jdte.vercel.app
+- **Backend URL**: https://collabcanva-backend.onrender.com
 - Two separate browsers or browser profiles (e.g., Chrome normal + Chrome incognito)
 - Two Google accounts for authentication
 
@@ -15,7 +16,7 @@ This document provides manual test scenarios to validate the MVP against accepta
 **Objective**: Verify users can sign in and their identity is visible.
 
 **Steps**:
-1. Open staging URL in Browser 1
+1. Open https://collab-canva-jdte.vercel.app in Browser 1
 2. Click "Sign in with Google"
 3. Authenticate with Google Account 1
 4. Verify redirect to `/canvas`
