@@ -9,6 +9,7 @@ import {
   screenToCanvas,
   getRandomColor
 } from '../lib/canvas'
+import Toolbar from '../components/Toolbar'
 
 function Canvas() {
   const [objects, setObjects] = useState<CanvasObject[]>([])
@@ -223,30 +224,14 @@ function Canvas() {
 
   return (
     <div className="canvas-page">
-      <div className="canvas-toolbar">
-        <button 
-          className="btn-primary" 
-          onClick={handleAddRectangle}
-          disabled={!isAuthenticated}
-        >
-          Add Rectangle
-        </button>
-        <button
-          className="btn-secondary"
-          onClick={handleDeleteSelected}
-          disabled={!selectedObjectId || !isAuthenticated}
-        >
-          Delete Selected
-        </button>
-        <div className="toolbar-info">
-          <span className={isConnected && isAuthenticated ? 'status-connected' : 'status-disconnected'}>
-            {isConnected && isAuthenticated ? '● Connected' : isConnected ? '○ Authenticating...' : '○ Disconnected'}
-          </span>
-          <span className="text-muted">
-            Objects: {objects.length}
-          </span>
-        </div>
-      </div>
+      <Toolbar
+        isConnected={isConnected}
+        isAuthenticated={isAuthenticated}
+        objectCount={objects.length}
+        hasSelection={selectedObjectId !== null}
+        onAddRectangle={handleAddRectangle}
+        onDeleteSelected={handleDeleteSelected}
+      />
 
       <div className="canvas-container">
         <canvas
