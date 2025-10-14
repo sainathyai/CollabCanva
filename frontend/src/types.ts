@@ -23,23 +23,21 @@ export interface CanvasObject {
 export interface Presence {
   userId: string;
   displayName: string;
-  cursor: {
-    x: number;
-    y: number;
-  };
+  x: number;
+  y: number;
   color: string;
   lastSeen: number;
 }
 
 export type WSMessage = 
-  | { type: 'initialState'; objects: CanvasObject[]; timestamp: string }
+  | { type: 'initialState'; objects: CanvasObject[]; presence?: Presence[]; timestamp: string }
   | { type: 'object.create'; object: CanvasObject; timestamp: string }
   | { type: 'object.update'; object: Partial<CanvasObject> & { id: string }; timestamp: string }
   | { type: 'object.delete'; objectId: string; timestamp: string }
   | { type: 'auth.success'; userId: string; displayName?: string; timestamp: string }
   | { type: 'auth.error'; error: string; timestamp: string }
   | { type: 'error'; error: string; timestamp: string }
-  | { type: 'presence.join'; presence: Presence }
-  | { type: 'presence.cursor'; userId: string; x: number; y: number }
-  | { type: 'presence.leave'; userId: string };
+  | { type: 'presence.join'; presence: Presence; timestamp: string }
+  | { type: 'presence.cursor'; userId: string; x: number; y: number; timestamp: string }
+  | { type: 'presence.leave'; userId: string; timestamp: string };
 

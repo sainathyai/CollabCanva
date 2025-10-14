@@ -1,7 +1,7 @@
-import { useEffect, useState, useRef } from 'react'
+import { useEffect, useState, useRef, useCallback } from 'react'
 import { getCurrentUser } from '../lib/auth'
 import { wsClient, MessageType, type WSMessage } from '../lib/ws'
-import type { CanvasObject } from '../types'
+import type { CanvasObject, Presence } from '../types'
 import {
   createRectangle,
   renderAllObjects,
@@ -10,6 +10,14 @@ import {
   getRandomColor
 } from '../lib/canvas'
 import Toolbar from '../components/Toolbar'
+import CursorOverlay from '../components/CursorOverlay'
+
+// Helper function to generate user colors
+const getUserColor = (userId: string): string => {
+  const colors = ['#FF6B6B', '#4ECDC4', '#45B7D1', '#FFA07A', '#98D8C8', '#F7DC6F', '#BB8FCE', '#85C1E2']
+  const hash = userId.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0)
+  return colors[hash % colors.length]
+}
 
 function Canvas() {
   const [objects, setObjects] = useState<CanvasObject[]>([])
@@ -18,10 +26,14 @@ function Canvas() {
   const [isAuthenticated, setIsAuthenticated] = useState(false)
   const [isDragging, setIsDragging] = useState(false)
   const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 })
-  const [_hasReceivedInitialState, setHasReceivedInitialState] = useState(false)
+  const [hasReceivedInitialState, setHasReceivedInitialState] = useState(false)
+  const [presences, setPresences] = useState<Map<string, Presence>>(new Map())
+  const [canvasOffset, setCanvasOffset] = useState({ left: 0, top: 0 })
   
   const canvasRef = useRef<HTMLCanvasElement>(null)
+  const containerRef = useRef<HTMLDivElement>(null)
   const user = getCurrentUser()
+  const lastCursorUpdate = useRef<number>(0)
 
   // Initialize WebSocket connection
   useEffect(() => {
@@ -36,8 +48,8 @@ function Canvas() {
         if (user) {
           try {
             const token = await user.getIdToken()
-            console.log('Sending authentication...')
-            wsClient.authenticate(token)
+            console.log('Sending authentication...', user.displayName)
+            wsClient.authenticate(token, user.displayName || undefined)
           } catch (error) {
             console.error('Failed to authenticate:', error)
           }
@@ -72,6 +84,15 @@ function Canvas() {
           setObjects(message.objects)
           setHasReceivedInitialState(true)
           console.log('Loaded initial state:', message.objects.length, 'objects')
+        }
+        // Load initial presence state
+        if ('presence' in message && message.presence) {
+          const presenceMap = new Map<string, Presence>()
+          message.presence.forEach(p => {
+            presenceMap.set(p.userId, { ...p, color: getUserColor(p.userId) })
+          })
+          setPresences(presenceMap)
+          console.log('Loaded initial presence:', message.presence.length, 'users')
         }
         break
 
@@ -111,11 +132,70 @@ function Canvas() {
         setIsAuthenticated(true)
         break
 
+      case 'presence.join':
+        if ('presence' in message) {
+          setPresences(prev => {
+            const updated = new Map(prev)
+            updated.set(message.presence.userId, { ...message.presence, color: getUserColor(message.presence.userId) })
+            return updated
+          })
+          console.log('User joined:', message.presence.displayName)
+        }
+        break
+
+      case 'presence.cursor':
+        if ('userId' in message && 'x' in message && 'y' in message) {
+          setPresences(prev => {
+            const updated = new Map(prev)
+            const existing = updated.get(message.userId)
+            if (existing) {
+              updated.set(message.userId, { ...existing, x: message.x, y: message.y, lastSeen: Date.now() })
+            }
+            return updated
+          })
+        }
+        break
+
+      case 'presence.leave':
+        if ('userId' in message) {
+          setPresences(prev => {
+            const updated = new Map(prev)
+            updated.delete(message.userId)
+            return updated
+          })
+          console.log('User left:', message.userId)
+        }
+        break
+
       case MessageType.ERROR:
         console.error('WebSocket error:', 'error' in message ? message.error : 'Unknown error')
         break
     }
   }
+
+  // Calculate canvas offset relative to container
+  useEffect(() => {
+    const updateCanvasOffset = () => {
+      const canvas = canvasRef.current
+      const container = containerRef.current
+      if (!canvas || !container) return
+
+      const canvasRect = canvas.getBoundingClientRect()
+      const containerRect = container.getBoundingClientRect()
+
+      setCanvasOffset({
+        left: canvasRect.left - containerRect.left,
+        top: canvasRect.top - containerRect.top
+      })
+    }
+
+    updateCanvasOffset()
+    window.addEventListener('resize', updateCanvasOffset)
+    
+    return () => {
+      window.removeEventListener('resize', updateCanvasOffset)
+    }
+  }, [])
 
   // Render canvas whenever objects change
   useEffect(() => {
@@ -184,25 +264,33 @@ function Canvas() {
     }
   }
 
-  // Handle mouse move for dragging
-  const handleMouseMove = (e: React.MouseEvent<HTMLCanvasElement>) => {
-    if (!isDragging || !selectedObjectId || !isAuthenticated) return
-
+  // Handle mouse move for both dragging and cursor tracking
+  const handleMouseMove = useCallback((e: React.MouseEvent<HTMLCanvasElement>) => {
     const canvas = canvasRef.current
-    if (!canvas) return
+    if (!canvas || !isAuthenticated) return
 
     const rect = canvas.getBoundingClientRect()
     const { x, y } = screenToCanvas(e.clientX, e.clientY, rect)
 
-    const newX = x - dragOffset.x
-    const newY = y - dragOffset.y
+    // Send cursor position (throttled to ~60fps)
+    const now = Date.now()
+    if (now - lastCursorUpdate.current > 16) {
+      wsClient.updateCursor(x, y)
+      lastCursorUpdate.current = now
+    }
 
-    wsClient.updateObject({
-      id: selectedObjectId,
-      x: newX,
-      y: newY
-    })
-  }
+    // Handle dragging if active
+    if (isDragging && selectedObjectId) {
+      const newX = x - dragOffset.x
+      const newY = y - dragOffset.y
+
+      wsClient.updateObject({
+        id: selectedObjectId,
+        x: newX,
+        y: newY
+      })
+    }
+  }, [isDragging, selectedObjectId, isAuthenticated, dragOffset])
 
   // Handle mouse up to stop dragging
   const handleMouseUp = () => {
@@ -233,7 +321,7 @@ function Canvas() {
         onDeleteSelected={handleDeleteSelected}
       />
 
-      <div className="canvas-container">
+      <div ref={containerRef} className="canvas-container" style={{ position: 'relative' }}>
         <canvas
           ref={canvasRef}
           width={800}
@@ -244,6 +332,11 @@ function Canvas() {
           onMouseMove={handleMouseMove}
           onMouseUp={handleMouseUp}
           onMouseLeave={handleMouseUp}
+        />
+        <CursorOverlay
+          presences={Array.from(presences.values())}
+          currentUserId={user?.uid}
+          canvasOffset={canvasOffset}
         />
       </div>
     </div>

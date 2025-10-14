@@ -33,6 +33,7 @@ export interface BaseMessage {
 export interface AuthMessage extends BaseMessage {
   type: MessageType.AUTH
   token: string
+  displayName?: string
 }
 
 export interface AuthSuccessMessage extends BaseMessage {
@@ -86,6 +87,37 @@ export interface InitialStateMessage extends BaseMessage {
   objects: CanvasObject[]
 }
 
+// Presence interfaces
+export interface PresenceInfo {
+  userId: string
+  displayName: string
+  x: number
+  y: number
+  lastSeen: number
+}
+
+export interface PresenceJoinMessage extends BaseMessage {
+  type: MessageType.PRESENCE_JOIN
+  presence: PresenceInfo
+}
+
+export interface PresenceCursorMessage extends BaseMessage {
+  type: MessageType.PRESENCE_CURSOR
+  userId: string
+  x: number
+  y: number
+}
+
+export interface PresenceLeaveMessage extends BaseMessage {
+  type: MessageType.PRESENCE_LEAVE
+  userId: string
+}
+
+export interface PresenceStateMessage extends BaseMessage {
+  type: MessageType.INITIAL_STATE
+  presence: PresenceInfo[]
+}
+
 export type WSMessage = 
   | AuthMessage 
   | AuthSuccessMessage 
@@ -95,4 +127,7 @@ export type WSMessage =
   | ObjectUpdateMessage
   | ObjectDeleteMessage
   | InitialStateMessage
+  | PresenceJoinMessage
+  | PresenceCursorMessage
+  | PresenceLeaveMessage
 
