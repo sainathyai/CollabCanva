@@ -82,6 +82,52 @@ npm run dev
 
 Open `http://localhost:5173` in your browser.
 
+## Backend Setup
+
+The backend is a Node.js WebSocket server that handles:
+- Real-time synchronization between clients
+- Firebase token verification (optional in development)
+- Canvas state management (in-memory)
+- Live presence tracking
+
+### Backend Configuration
+
+1. **Navigate to backend directory:**
+   ```bash
+   cd backend
+   ```
+
+2. **Install dependencies:**
+   ```bash
+   npm install
+   ```
+
+3. **Configure environment variables:**
+   - Copy `backend/.env.example` to `backend/.env`
+   - Basic configuration:
+     ```bash
+     PORT=8080
+     ALLOWED_ORIGINS=http://localhost:5173
+     NODE_ENV=development
+     ```
+
+4. **Start the backend server:**
+   ```bash
+   npm run dev
+   ```
+   
+   You should see:
+   ```
+   Server running on port 8080
+   Environment: development
+   Health check: http://localhost:8080/health
+   WebSocket: ws://localhost:8080
+   ```
+
+5. **Test the health endpoint:**
+   Open http://localhost:8080/health in your browser
+   You should see: `{"status":"ok","timestamp":"...","uptime":...}`
+
 ## Firebase Setup
 
 ### Step-by-Step Firebase Configuration
