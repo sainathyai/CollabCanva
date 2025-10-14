@@ -67,7 +67,18 @@ async function handleAuth(ws: WebSocket, message: AuthMessage) {
       timestamp: new Date().toISOString()
     }))
     
-    logger.info('User authenticated', { uid: userClaims.uid })
+    // SECURITY FIX: Send initial canvas state ONLY after authentication
+    const initialObjects = canvasState.getAllObjects()
+    ws.send(JSON.stringify({
+      type: MessageType.INITIAL_STATE,
+      objects: initialObjects,
+      timestamp: new Date().toISOString()
+    }))
+    
+    logger.info('User authenticated and initial state sent', { 
+      uid: userClaims.uid, 
+      objectCount: initialObjects.length 
+    })
   } catch (error) {
     logger.error('Authentication failed', { error })
     ws.send(JSON.stringify({
