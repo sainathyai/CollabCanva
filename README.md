@@ -396,6 +396,7 @@ CollabCanvas/
 Comprehensive documentation is organized in the `docs/` folder:
 
 ### Product & Planning
+- **[AI_DEVELOPMENT_LOG.txt](docs/AI_DEVELOPMENT_LOG.txt)** - 🆕 AI-First Development Process & Learnings
 - **[PRD_MVP.md](docs/PRD_MVP.md)** - Product Requirements Document for MVP
 - **[Tasks.md](docs/Tasks.md)** - Development task list and PRs breakdown
 - **[Prompts.md](docs/Prompts.md)** - Development prompts and context
