@@ -6,11 +6,13 @@ import {
   ErrorMessage,
   ObjectCreateMessage,
   ObjectUpdateMessage,
-  ObjectDeleteMessage
+  ObjectDeleteMessage,
+  PresenceCursorMessage
 } from './messageTypes.js'
 import { verifyToken, UserClaims } from '../auth/verifyToken.js'
 import { logger } from '../utils/logger.js'
 import * as canvasState from '../state/canvasState.js'
+import * as presenceState from '../state/presenceState.js'
 
 // Store authenticated users (in-memory for MVP)
 export const connectedClients = new Map<WebSocket, UserClaims>()
@@ -40,6 +42,10 @@ export async function handleMessage(ws: WebSocket, message: string) {
         handleObjectDelete(ws, data as ObjectDeleteMessage)
         break
       
+      case MessageType.PRESENCE_CURSOR:
+        handlePresenceCursor(ws, data as PresenceCursorMessage)
+        break
+      
       default:
         sendError(ws, `Unknown message type: ${data.type}`)
     }
@@ -54,7 +60,7 @@ export async function handleMessage(ws: WebSocket, message: string) {
  */
 async function handleAuth(ws: WebSocket, message: AuthMessage) {
   try {
-    const userClaims = await verifyToken(message.token)
+    const userClaims = await verifyToken(message.token, message.displayName)
     
     // Store authenticated user
     connectedClients.set(ws, userClaims)
@@ -75,9 +81,34 @@ async function handleAuth(ws: WebSocket, message: AuthMessage) {
       timestamp: new Date().toISOString()
     }))
     
+    // Register user presence
+    const presence = presenceState.updatePresence(
+      userClaims.uid,
+      userClaims.name || 'Anonymous',
+      0,
+      0
+    )
+    
+    // Send all existing presence to the new user
+    const allPresence = presenceState.getAllPresence()
+    ws.send(JSON.stringify({
+      type: MessageType.INITIAL_STATE,
+      presence: allPresence.filter(p => p.userId !== userClaims.uid),
+      timestamp: new Date().toISOString()
+    }))
+    
+    // Broadcast presence join to all other clients
+    const joinMessage = JSON.stringify({
+      type: MessageType.PRESENCE_JOIN,
+      presence,
+      timestamp: new Date().toISOString()
+    })
+    broadcastToAll(joinMessage, ws)
+    
     logger.info('User authenticated and initial state sent', { 
       uid: userClaims.uid, 
-      objectCount: initialObjects.length 
+      objectCount: initialObjects.length,
+      presenceCount: allPresence.length
     })
   } catch (error) {
     logger.error('Authentication failed', { error })
@@ -182,6 +213,35 @@ function handleObjectDelete(ws: WebSocket, message: ObjectDeleteMessage) {
 }
 
 /**
+ * Handle presence cursor update
+ */
+function handlePresenceCursor(ws: WebSocket, message: PresenceCursorMessage) {
+  try {
+    const user = connectedClients.get(ws)
+    if (!user) {
+      sendError(ws, 'Not authenticated')
+      return
+    }
+
+    // Update cursor position in presence state
+    presenceState.updateCursor(user.uid, message.x, message.y)
+    
+    // Broadcast cursor position to all other clients
+    const broadcastMessage = JSON.stringify({
+      type: MessageType.PRESENCE_CURSOR,
+      userId: user.uid,
+      x: message.x,
+      y: message.y,
+      timestamp: new Date().toISOString()
+    })
+    
+    broadcast(ws, broadcastMessage)
+  } catch (error) {
+    logger.error('Error updating presence cursor', { error })
+  }
+}
+
+/**
  * Send error message to client
  */
 function sendError(ws: WebSocket, error: string) {
@@ -200,6 +260,18 @@ export function handleDisconnect(ws: WebSocket) {
   const user = connectedClients.get(ws)
   if (user) {
     logger.info('User disconnected', { uid: user.uid })
+    
+    // Remove from presence
+    presenceState.removePresence(user.uid)
+    
+    // Broadcast presence leave to all other clients
+    const leaveMessage = JSON.stringify({
+      type: MessageType.PRESENCE_LEAVE,
+      userId: user.uid,
+      timestamp: new Date().toISOString()
+    })
+    broadcastToAll(leaveMessage)
+    
     connectedClients.delete(ws)
   }
 }
@@ -217,10 +289,12 @@ export function broadcast(sender: WebSocket, message: string) {
 
 /**
  * Broadcast message to all connected clients including sender
+ * @param message - Message to broadcast
+ * @param exclude - Optional client to exclude from broadcast
  */
-export function broadcastToAll(message: string) {
+export function broadcastToAll(message: string, exclude?: WebSocket) {
   connectedClients.forEach((user, client) => {
-    if (client.readyState === WebSocket.OPEN) {
+    if (client.readyState === WebSocket.OPEN && client !== exclude) {
       client.send(message)
     }
   })

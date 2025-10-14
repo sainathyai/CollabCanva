@@ -12,16 +12,19 @@ export interface UserClaims {
  * For MVP, this is a stub that accepts any token in development
  * In production, this should use firebase-admin to verify tokens
  */
-export async function verifyToken(token: string): Promise<UserClaims> {
+export async function verifyToken(token: string, displayName?: string): Promise<UserClaims> {
   // Development/MVP mode: Accept any non-empty token
   if (env.NODE_ENV === 'development' || !env.FIREBASE_PROJECT_ID) {
     logger.warn('Auth verification in development mode - accepting all tokens')
     
-    // Parse a mock user from the token or use defaults
+    // Generate unique user ID based on timestamp
+    const timestamp = Date.now()
+    const uid = `dev-user-${timestamp}`
+    
     return {
-      uid: `dev-user-${Date.now()}`,
-      email: 'dev@example.com',
-      name: 'Development User'
+      uid,
+      email: `user@dev.local`,
+      name: displayName || `User ${timestamp.toString().slice(-4)}`
     }
   }
 

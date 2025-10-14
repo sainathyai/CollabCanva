@@ -178,10 +178,11 @@ class WebSocketClient {
   /**
    * Authenticate with the server
    */
-  authenticate(token: string): void {
+  authenticate(token: string, displayName?: string): void {
     this.send({
       type: MessageType.AUTH,
       token,
+      displayName,
       timestamp: new Date().toISOString()
     })
   }
@@ -215,6 +216,18 @@ class WebSocketClient {
     this.send({
       type: MessageType.OBJECT_DELETE,
       objectId,
+      timestamp: new Date().toISOString()
+    })
+  }
+
+  /**
+   * Send cursor position update
+   */
+  updateCursor(x: number, y: number): void {
+    this.send({
+      type: 'presence.cursor' as MessageType,
+      x,
+      y,
       timestamp: new Date().toISOString()
     })
   }
