@@ -60,7 +60,7 @@ export async function handleMessage(ws: WebSocket, message: string) {
  */
 async function handleAuth(ws: WebSocket, message: AuthMessage) {
   try {
-    const userClaims = await verifyToken(message.token, message.displayName)
+    const userClaims = await verifyToken(message.token)
     
     // Store authenticated user
     connectedClients.set(ws, userClaims)
