@@ -23,7 +23,11 @@ function Canvas() {
   const [presences, setPresences] = useState<Map<string, Presence>>(new Map())
   const [canvasOffset, setCanvasOffset] = useState({ left: 0, top: 0 })
   const [stageSize, setStageSize] = useState({ width: 800, height: 600 })
-  
+  const [clipboard, setClipboard] = useState<CanvasObject[]>([])
+  const [scale, setScale] = useState(1)
+  const [position, setPosition] = useState({ x: 0, y: 0 })
+  const [isPanning, setIsPanning] = useState(false)
+
   const containerRef = useRef<HTMLDivElement>(null)
   const user = getCurrentUser()
   const lastCursorUpdate = useRef<number>(0)
@@ -35,7 +39,7 @@ function Canvas() {
         await wsClient.connect()
         setIsConnected(true)
         console.log('Connected to WebSocket server')
-        
+
         // SECURITY FIX: Authenticate immediately after connection
         // Server requires authentication before sending initial state
         if (user) {
@@ -188,14 +192,14 @@ function Canvas() {
 
     updateSize()
     window.addEventListener('resize', updateSize)
-    
+
     return () => {
       window.removeEventListener('resize', updateSize)
     }
   }, [])
 
   // Handle adding shapes (generic for all types)
-  const handleAddShape = (type: 'rectangle' | 'circle' | 'text' | 'line') => {
+  const handleAddShape = (type: CanvasObject['type']) => {
     if (!user) {
       alert('You must be logged in to add objects')
       return
@@ -301,35 +305,189 @@ function Canvas() {
       alert('Please wait... authenticating with server')
       return
     }
-    
+
     selectedIds.forEach(id => {
       wsClient.deleteObject(id)
     })
     setSelectedIds(new Set())
   }
 
+  // Copy selected objects to clipboard
+  const handleCopy = useCallback(() => {
+    if (selectedIds.size === 0) return
+    const selectedObjects = objects.filter(obj => selectedIds.has(obj.id))
+    setClipboard(selectedObjects)
+    console.log(`Copied ${selectedObjects.length} objects`)
+  }, [selectedIds, objects])
+
+  // Cut selected objects to clipboard
+  const handleCut = useCallback(() => {
+    if (selectedIds.size === 0) return
+    const selectedObjects = objects.filter(obj => selectedIds.has(obj.id))
+    setClipboard(selectedObjects)
+    handleDeleteSelected()
+    console.log(`Cut ${selectedObjects.length} objects`)
+  }, [selectedIds, objects])
+
+  // Paste objects from clipboard
+  const handlePaste = useCallback(() => {
+    if (clipboard.length === 0 || !isAuthenticated) return
+
+    clipboard.forEach(obj => {
+      const newObject: CanvasObject = {
+        ...obj,
+        id: `obj-${Date.now()}-${Math.random().toString(36).substring(7)}`,
+        x: obj.x + 20,
+        y: obj.y + 20,
+        createdBy: user?.email || 'anonymous',
+        createdAt: new Date().toISOString(),
+      }
+      wsClient.send({
+        type: MessageType.OBJECT_CREATE,
+        object: newObject,
+        timestamp: new Date().toISOString()
+      })
+    })
+    console.log(`Pasted ${clipboard.length} objects`)
+  }, [clipboard, isAuthenticated, user])
+
+  // Select all objects
+  const handleSelectAll = useCallback(() => {
+    setSelectedIds(new Set(objects.map(obj => obj.id)))
+    console.log(`Selected all ${objects.length} objects`)
+  }, [objects])
+
+  // Nudge selected objects with arrow keys
+  const handleNudge = useCallback((dx: number, dy: number) => {
+    if (selectedIds.size === 0) return
+
+    selectedIds.forEach(id => {
+      const obj = objects.find(o => o.id === id)
+      if (obj) {
+        wsClient.send({
+          type: MessageType.OBJECT_UPDATE,
+          objectId: id,
+          updates: {
+            x: obj.x + dx,
+            y: obj.y + dy,
+            updatedAt: new Date().toISOString()
+          },
+          timestamp: new Date().toISOString()
+        })
+      }
+    })
+  }, [selectedIds, objects])
+
+  // Handle mouse wheel zoom
+  const handleWheel = useCallback((e: WheelEvent) => {
+    e.preventDefault()
+
+    const scaleBy = 1.05
+    const stage = e.currentTarget as HTMLElement
+    const oldScale = scale
+
+    const pointer = {
+      x: (e.clientX - stage.getBoundingClientRect().left) / oldScale,
+      y: (e.clientY - stage.getBoundingClientRect().top) / oldScale
+    }
+
+    const newScale = e.deltaY < 0 ? oldScale * scaleBy : oldScale / scaleBy
+
+    // Limit zoom between 0.1x and 5x
+    const clampedScale = Math.max(0.1, Math.min(5, newScale))
+
+    setScale(clampedScale)
+
+    // Adjust position to zoom towards mouse pointer
+    setPosition({
+      x: (pointer.x - (pointer.x - position.x) * (clampedScale / oldScale)),
+      y: (pointer.y - (pointer.y - position.y) * (clampedScale / oldScale))
+    })
+  }, [scale, position])
+
   // Keyboard shortcuts
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
+      // Ignore keyboard shortcuts when typing in input fields
+      if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) {
+        return
+      }
+
+      // Space: enable panning mode
+      if (e.key === ' ' && !isPanning) {
+        e.preventDefault()
+        setIsPanning(true)
+        document.body.style.cursor = 'grab'
+      }
       // Delete or Backspace: delete selected
-      if ((e.key === 'Delete' || e.key === 'Backspace') && selectedIds.size > 0) {
+      else if ((e.key === 'Delete' || e.key === 'Backspace') && selectedIds.size > 0) {
         e.preventDefault()
         handleDeleteSelected()
       }
       // Ctrl+D: duplicate
-      if (e.ctrlKey && e.key === 'd' && selectedIds.size > 0) {
+      else if (e.ctrlKey && e.key === 'd' && selectedIds.size > 0) {
         e.preventDefault()
         handleDuplicate()
       }
+      // Ctrl+A: select all
+      else if (e.ctrlKey && e.key === 'a') {
+        e.preventDefault()
+        handleSelectAll()
+      }
+      // Ctrl+C: copy
+      else if (e.ctrlKey && e.key === 'c' && selectedIds.size > 0) {
+        e.preventDefault()
+        handleCopy()
+      }
+      // Ctrl+X: cut
+      else if (e.ctrlKey && e.key === 'x' && selectedIds.size > 0) {
+        e.preventDefault()
+        handleCut()
+      }
+      // Ctrl+V: paste
+      else if (e.ctrlKey && e.key === 'v') {
+        e.preventDefault()
+        handlePaste()
+      }
       // Escape: deselect all
-      if (e.key === 'Escape') {
+      else if (e.key === 'Escape') {
         setSelectedIds(new Set())
+      }
+      // Arrow keys: nudge selected objects
+      else if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.key) && selectedIds.size > 0) {
+        e.preventDefault()
+        const step = e.shiftKey ? 10 : 1
+        switch (e.key) {
+          case 'ArrowUp':
+            handleNudge(0, -step)
+            break
+          case 'ArrowDown':
+            handleNudge(0, step)
+            break
+          case 'ArrowLeft':
+            handleNudge(-step, 0)
+            break
+          case 'ArrowRight':
+            handleNudge(step, 0)
+            break
+        }
+      }
+    }
+
+    const handleKeyUp = (e: KeyboardEvent) => {
+      if (e.key === ' ') {
+        setIsPanning(false)
+        document.body.style.cursor = 'default'
       }
     }
 
     window.addEventListener('keydown', handleKeyDown)
-    return () => window.removeEventListener('keydown', handleKeyDown)
-  }, [selectedIds, isAuthenticated, objects])
+    window.addEventListener('keyup', handleKeyUp)
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown)
+      window.removeEventListener('keyup', handleKeyUp)
+    }
+  }, [selectedIds, isAuthenticated, objects, handleCopy, handleCut, handlePaste, handleSelectAll, handleNudge, handleDeleteSelected, handleDuplicate, isPanning])
 
   return (
     <div className="canvas-page">
@@ -346,11 +504,12 @@ function Canvas() {
         onDeleteSelected={handleDeleteSelected}
       />
 
-      <div 
-        ref={containerRef} 
-        className="canvas-container" 
-        style={{ position: 'relative', width: '100%', height: 'calc(100vh - 60px)' }}
+      <div
+        ref={containerRef}
+        className="canvas-container"
+        style={{ position: 'relative', width: '100%', height: 'calc(100vh - 60px)', overflow: 'hidden' }}
         onMouseMove={handleMouseMove}
+        onWheel={handleWheel as any}
       >
         <KonvaCanvas
           objects={objects}
@@ -359,6 +518,10 @@ function Canvas() {
           onTransform={handleTransform}
           stageWidth={stageSize.width}
           stageHeight={stageSize.height}
+          scale={scale}
+          position={position}
+          isPanning={isPanning}
+          onPositionChange={setPosition}
         />
         <CursorOverlay
           presences={Array.from(presences.values())}
@@ -368,6 +531,40 @@ function Canvas() {
         {!isConnected && (
           <div style={{ position: 'absolute', top: 10, right: 10, padding: '8px 16px', background: '#fbbf24', borderRadius: '4px' }}>
             Connecting...
+          </div>
+        )}
+
+        {/* Zoom indicator */}
+        <div style={{
+          position: 'absolute',
+          bottom: 10,
+          right: 10,
+          padding: '6px 12px',
+          background: 'rgba(0, 0, 0, 0.7)',
+          color: 'white',
+          borderRadius: '4px',
+          fontSize: '12px',
+          fontWeight: 'bold',
+          userSelect: 'none'
+        }}>
+          {Math.round(scale * 100)}%
+        </div>
+
+        {/* Panning hint */}
+        {isPanning && (
+          <div style={{
+            position: 'absolute',
+            top: 10,
+            left: '50%',
+            transform: 'translateX(-50%)',
+            padding: '6px 12px',
+            background: 'rgba(66, 179, 255, 0.9)',
+            color: 'white',
+            borderRadius: '4px',
+            fontSize: '12px',
+            fontWeight: 'bold'
+          }}>
+            🖐️ Pan Mode: Drag to move canvas
           </div>
         )}
       </div>

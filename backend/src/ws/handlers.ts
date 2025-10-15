@@ -1,8 +1,8 @@
 import { WebSocket } from 'ws'
-import { 
-  WSMessage, 
-  MessageType, 
-  AuthMessage, 
+import {
+  WSMessage,
+  MessageType,
+  AuthMessage,
   ErrorMessage,
   ObjectCreateMessage,
   ObjectUpdateMessage,
@@ -29,23 +29,23 @@ export async function handleMessage(ws: WebSocket, message: string) {
       case MessageType.AUTH:
         await handleAuth(ws, data as AuthMessage)
         break
-      
+
       case MessageType.OBJECT_CREATE:
         handleObjectCreate(ws, data as ObjectCreateMessage)
         break
-      
+
       case MessageType.OBJECT_UPDATE:
         handleObjectUpdate(ws, data as ObjectUpdateMessage)
         break
-      
+
       case MessageType.OBJECT_DELETE:
         handleObjectDelete(ws, data as ObjectDeleteMessage)
         break
-      
+
       case MessageType.PRESENCE_CURSOR:
         handlePresenceCursor(ws, data as PresenceCursorMessage)
         break
-      
+
       default:
         sendError(ws, `Unknown message type: ${data.type}`)
     }
@@ -60,11 +60,11 @@ export async function handleMessage(ws: WebSocket, message: string) {
  */
 async function handleAuth(ws: WebSocket, message: AuthMessage) {
   try {
-    const userClaims = await verifyToken(message.token)
-    
+    const userClaims = await verifyToken(message.token, message.displayName)
+
     // Store authenticated user
     connectedClients.set(ws, userClaims)
-    
+
     // Send success response
     ws.send(JSON.stringify({
       type: MessageType.AUTH_SUCCESS,
@@ -72,15 +72,20 @@ async function handleAuth(ws: WebSocket, message: AuthMessage) {
       displayName: userClaims.name,
       timestamp: new Date().toISOString()
     }))
-    
+
     // SECURITY FIX: Send initial canvas state ONLY after authentication
     const initialObjects = canvasState.getAllObjects()
+    logger.info('Sending initial state to authenticated user', {
+      userId: userClaims.uid,
+      objectCount: initialObjects.length,
+      objects: initialObjects.map(o => ({ id: o.id, type: o.type, createdBy: o.createdBy }))
+    })
     ws.send(JSON.stringify({
       type: MessageType.INITIAL_STATE,
       objects: initialObjects,
       timestamp: new Date().toISOString()
     }))
-    
+
     // Register user presence
     const presence = presenceState.updatePresence(
       userClaims.uid,
@@ -88,7 +93,7 @@ async function handleAuth(ws: WebSocket, message: AuthMessage) {
       0,
       0
     )
-    
+
     // Send all existing presence to the new user
     const allPresence = presenceState.getAllPresence()
     ws.send(JSON.stringify({
@@ -96,7 +101,7 @@ async function handleAuth(ws: WebSocket, message: AuthMessage) {
       presence: allPresence.filter(p => p.userId !== userClaims.uid),
       timestamp: new Date().toISOString()
     }))
-    
+
     // Broadcast presence join to all other clients
     const joinMessage = JSON.stringify({
       type: MessageType.PRESENCE_JOIN,
@@ -104,9 +109,9 @@ async function handleAuth(ws: WebSocket, message: AuthMessage) {
       timestamp: new Date().toISOString()
     })
     broadcastToAll(joinMessage, ws)
-    
-    logger.info('User authenticated and initial state sent', { 
-      uid: userClaims.uid, 
+
+    logger.info('User authenticated and initial state sent', {
+      uid: userClaims.uid,
       objectCount: initialObjects.length,
       presenceCount: allPresence.length
     })
@@ -134,14 +139,14 @@ function handleObjectCreate(ws: WebSocket, message: ObjectCreateMessage) {
 
     // Create object in state
     const object = canvasState.createObject(message.object)
-    
+
     // Broadcast to all clients including sender
     const broadcastMessage = JSON.stringify({
       type: MessageType.OBJECT_CREATE,
       object,
       timestamp: new Date().toISOString()
     })
-    
+
     broadcastToAll(broadcastMessage)
     logger.info('Object created and broadcasted', { id: object.id, userId: user.uid })
   } catch (error) {
@@ -163,14 +168,14 @@ function handleObjectUpdate(ws: WebSocket, message: ObjectUpdateMessage) {
 
     // Update object in state (last-write-wins)
     const object = canvasState.updateObject(message.object)
-    
+
     // Broadcast to all clients including sender
     const broadcastMessage = JSON.stringify({
       type: MessageType.OBJECT_UPDATE,
       object,
       timestamp: new Date().toISOString()
     })
-    
+
     broadcastToAll(broadcastMessage)
     logger.debug('Object updated and broadcasted', { id: object.id })
   } catch (error) {
@@ -192,7 +197,7 @@ function handleObjectDelete(ws: WebSocket, message: ObjectDeleteMessage) {
 
     // Delete object from state
     const deleted = canvasState.deleteObject(message.objectId)
-    
+
     if (deleted) {
       // Broadcast to all clients including sender
       const broadcastMessage = JSON.stringify({
@@ -200,7 +205,7 @@ function handleObjectDelete(ws: WebSocket, message: ObjectDeleteMessage) {
         objectId: message.objectId,
         timestamp: new Date().toISOString()
       })
-      
+
       broadcastToAll(broadcastMessage)
       logger.info('Object deleted and broadcasted', { id: message.objectId })
     } else {
@@ -225,7 +230,7 @@ function handlePresenceCursor(ws: WebSocket, message: PresenceCursorMessage) {
 
     // Update cursor position in presence state
     presenceState.updateCursor(user.uid, message.x, message.y)
-    
+
     // Broadcast cursor position to all other clients
     const broadcastMessage = JSON.stringify({
       type: MessageType.PRESENCE_CURSOR,
@@ -234,7 +239,7 @@ function handlePresenceCursor(ws: WebSocket, message: PresenceCursorMessage) {
       y: message.y,
       timestamp: new Date().toISOString()
     })
-    
+
     broadcast(ws, broadcastMessage)
   } catch (error) {
     logger.error('Error updating presence cursor', { error })
@@ -260,10 +265,10 @@ export function handleDisconnect(ws: WebSocket) {
   const user = connectedClients.get(ws)
   if (user) {
     logger.info('User disconnected', { uid: user.uid })
-    
+
     // Remove from presence
     presenceState.removePresence(user.uid)
-    
+
     // Broadcast presence leave to all other clients
     const leaveMessage = JSON.stringify({
       type: MessageType.PRESENCE_LEAVE,
@@ -271,7 +276,7 @@ export function handleDisconnect(ws: WebSocket) {
       timestamp: new Date().toISOString()
     })
     broadcastToAll(leaveMessage)
-    
+
     connectedClients.delete(ws)
   }
 }

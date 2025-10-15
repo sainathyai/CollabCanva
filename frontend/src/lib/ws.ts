@@ -1,38 +1,28 @@
 // WebSocket client for real-time canvas synchronization
+import type { CanvasObject } from '../types'
 
 export enum MessageType {
   // Auth
   AUTH = 'auth',
   AUTH_SUCCESS = 'auth.success',
   AUTH_ERROR = 'auth.error',
-  
+
   // Object operations
   OBJECT_CREATE = 'object.create',
   OBJECT_UPDATE = 'object.update',
   OBJECT_DELETE = 'object.delete',
   INITIAL_STATE = 'initialState',
-  
+
   // Presence
   PRESENCE_JOIN = 'presence.join',
   PRESENCE_CURSOR = 'presence.cursor',
   PRESENCE_LEAVE = 'presence.leave',
-  
+
   // Error
   ERROR = 'error'
 }
 
-export interface CanvasObject {
-  id: string
-  type: 'rectangle'
-  x: number
-  y: number
-  width: number
-  height: number
-  fill: string
-  createdBy: string
-  createdAt: string
-  updatedAt: string
-}
+export type { CanvasObject }
 
 export interface WSMessage {
   type: MessageType
@@ -90,7 +80,7 @@ class WebSocketClient {
           console.log('WebSocket closed')
           this.connectionReady = false
           this.ws = null
-          
+
           // Attempt to reconnect if not intentionally closed
           if (!this.isIntentionallyClosed && this.reconnectAttempts < this.maxReconnectAttempts) {
             this.reconnectAttempts++
@@ -153,7 +143,7 @@ class WebSocketClient {
    */
   onMessage(handler: MessageHandler): () => void {
     this.messageHandlers.add(handler)
-    
+
     // Return unsubscribe function
     return () => {
       this.messageHandlers.delete(handler)

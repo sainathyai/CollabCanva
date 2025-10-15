@@ -28,16 +28,16 @@ function initializeFirebase() {
  * For MVP, accepts any token in development
  * In production, verifies with Firebase Admin SDK
  */
-export async function verifyToken(token: string): Promise<UserClaims> {
+export async function verifyToken(token: string, displayName?: string): Promise<UserClaims> {
   // Development/MVP mode: Accept any non-empty token
   if (env.NODE_ENV === 'development' || !env.FIREBASE_PROJECT_ID) {
     logger.warn('Auth verification in development mode - accepting all tokens')
 
-    // Parse a mock user from the token or use defaults
+    // Use provided displayName from frontend or fallback
     return {
       uid: `dev-user-${Date.now()}`,
       email: 'dev@example.com',
-      name: 'Development User'
+      name: displayName || 'Development User'
     }
   }
 

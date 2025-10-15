@@ -202,8 +202,108 @@ button:disabled {
   padding: 1rem 2rem;
   display: flex;
   align-items: center;
-  gap: 1rem;
+  gap: 2rem;
   box-shadow: var(--shadow-sm);
+}
+
+.toolbar-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.toolbar-panel-title {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.tool-grid {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.tool-btn {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.25rem;
+  padding: 0.5rem;
+  background: transparent;
+  border: 2px solid var(--border);
+  border-radius: 0.5rem;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  color: var(--text-secondary);
+  min-width: 60px;
+}
+
+.tool-btn:hover:not(:disabled) {
+  background: var(--background);
+  border-color: var(--primary-color);
+  color: var(--primary-color);
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-md);
+}
+
+.tool-btn:active:not(:disabled) {
+  transform: translateY(0);
+}
+
+.tool-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.tool-btn svg {
+  width: 32px;
+  height: 32px;
+}
+
+.tool-label {
+  font-size: 0.625rem;
+  font-weight: 500;
+  text-align: center;
+}
+
+/* Color Picker Tool */
+.color-tool {
+  position: relative;
+  border: 2px solid var(--border);
+  padding: 0;
+}
+
+.color-input {
+  position: absolute;
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+
+.color-label {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.5rem;
+  cursor: pointer;
+  width: 60px;
+}
+
+.color-tool:hover:not(:has(input:disabled)) {
+  background: var(--background);
+  border-color: var(--primary-color);
+  color: var(--primary-color);
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-md);
+}
+
+.color-tool:has(input:disabled) {
+  opacity: 0.4;
+  cursor: not-allowed;
 }
 
 .toolbar-info {
@@ -301,44 +401,13 @@ button:disabled {
     opacity: 0;
     transform: translateY(-5px);
   }
+
   to {
     opacity: 1;
     transform: translateY(0);
   }
 }
 
-/* Konva Canvas Styles */
-.toolbar-section {
-  display: flex;
-  gap: 0.5rem;
-  align-items: center;
-}
-
-.toolbar-label {
-  display: flex;
-  gap: 0.5rem;
-  align-items: center;
-  font-size: 0.875rem;
-  color: var(--text-secondary);
-}
-
-.color-picker {
-  width: 40px;
-  height: 32px;
-  border: 1px solid var(--border);
-  border-radius: 0.375rem;
-  cursor: pointer;
-  transition: all 0.15s ease;
-}
-
-.color-picker:hover:not(:disabled) {
-  border-color: var(--primary-color);
-}
-
-.color-picker:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
 
 /* Utilities */
 .text-muted {
@@ -365,4 +434,3 @@ button:disabled {
     padding: 2rem 1.5rem;
   }
 }
-

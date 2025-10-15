@@ -4,23 +4,23 @@ export enum MessageType {
   // Connection
   CONNECT = 'connect',
   DISCONNECT = 'disconnect',
-  
+
   // Auth
   AUTH = 'auth',
   AUTH_SUCCESS = 'auth.success',
   AUTH_ERROR = 'auth.error',
-  
+
   // Object operations (for PR 5)
   OBJECT_CREATE = 'object.create',
   OBJECT_UPDATE = 'object.update',
   OBJECT_DELETE = 'object.delete',
   INITIAL_STATE = 'initialState',
-  
+
   // Presence (for PR 7)
   PRESENCE_JOIN = 'presence.join',
   PRESENCE_CURSOR = 'presence.cursor',
   PRESENCE_LEAVE = 'presence.leave',
-  
+
   // Error
   ERROR = 'error'
 }
@@ -53,7 +53,7 @@ export interface ErrorMessage extends BaseMessage {
 }
 
 // Canvas Object interface
-export type ShapeType = 'rectangle' | 'circle' | 'line' | 'text'
+export type ShapeType = 'rectangle' | 'circle' | 'line' | 'text' | 'triangle' | 'star' | 'polygon' | 'arrow' | 'ellipse' | 'roundedRect' | 'diamond' | 'pentagon'
 
 export interface CanvasObject {
   id: string
@@ -65,15 +65,15 @@ export interface CanvasObject {
   rotation: number  // NEW: for Konva rotation
   color: string     // NEW: renamed from 'fill' for consistency
   zIndex: number    // NEW: for layer management
-  
+
   // Text-specific fields
   text?: string
   fontSize?: number
   fontFamily?: string
-  
+
   // Line-specific fields
   points?: number[] // [x1, y1, x2, y2]
-  
+
   createdBy: string
   createdAt: string
   updatedAt?: string // Optional now
@@ -131,10 +131,10 @@ export interface PresenceStateMessage extends BaseMessage {
   presence: PresenceInfo[]
 }
 
-export type WSMessage = 
-  | AuthMessage 
-  | AuthSuccessMessage 
-  | AuthErrorMessage 
+export type WSMessage =
+  | AuthMessage
+  | AuthSuccessMessage
+  | AuthErrorMessage
   | ErrorMessage
   | ObjectCreateMessage
   | ObjectUpdateMessage

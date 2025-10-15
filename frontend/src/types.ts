@@ -7,7 +7,7 @@ export interface User {
   photoURL: string | null;
 }
 
-export type ShapeType = 'rectangle' | 'circle' | 'line' | 'text';
+export type ShapeType = 'rectangle' | 'circle' | 'line' | 'text' | 'triangle' | 'star' | 'polygon' | 'arrow' | 'ellipse' | 'roundedRect' | 'diamond' | 'pentagon';
 
 export interface CanvasObject {
   id: string;
@@ -19,15 +19,15 @@ export interface CanvasObject {
   rotation: number;  // NEW: for Konva rotation
   color: string;     // NEW: renamed from 'fill' for consistency
   zIndex: number;    // NEW: for layer management
-  
+
   // Text-specific fields
   text?: string;
   fontSize?: number;
   fontFamily?: string;
-  
+
   // Line-specific fields
   points?: number[]; // [x1, y1, x2, y2]
-  
+
   createdBy: string;
   createdAt: string; // ISO timestamp
   updatedAt?: string; // ISO timestamp (optional)
@@ -42,7 +42,7 @@ export interface Presence {
   lastSeen: number;
 }
 
-export type WSMessage = 
+export type WSMessage =
   | { type: 'initialState'; objects: CanvasObject[]; presence?: Presence[]; timestamp: string }
   | { type: 'object.create'; object: CanvasObject; timestamp: string }
   | { type: 'object.update'; object: Partial<CanvasObject> & { id: string }; timestamp: string }

@@ -6,6 +6,7 @@ export type { CanvasObject }
 
 // In-memory store for canvas objects
 const canvasObjects = new Map<string, CanvasObject>()
+logger.info('🔵 Canvas state initialized', { objectCount: canvasObjects.size })
 
 /**
  * Create a new canvas object
@@ -17,7 +18,13 @@ export function createObject(object: CanvasObject): CanvasObject {
   }
 
   canvasObjects.set(object.id, object)
-  logger.debug('Object created', { id: object.id, type: object.type })
+  logger.info('🟢 Object created', {
+    id: object.id,
+    type: object.type,
+    createdBy: object.createdBy,
+    totalObjects: canvasObjects.size,
+    stack: new Error().stack?.split('\n').slice(1, 4).join('\n')
+  })
   return object
 }
 
@@ -26,7 +33,7 @@ export function createObject(object: CanvasObject): CanvasObject {
  */
 export function updateObject(object: Partial<CanvasObject> & { id: string }): CanvasObject {
   const existing = canvasObjects.get(object.id)
-  
+
   if (!existing) {
     logger.warn('Object not found for update, creating new', { id: object.id })
     // If object doesn't exist, treat as create (eventually consistent)
@@ -83,7 +90,12 @@ export function getObject(id: string): CanvasObject | undefined {
  * Get all canvas objects
  */
 export function getAllObjects(): CanvasObject[] {
-  return Array.from(canvasObjects.values())
+  const objects = Array.from(canvasObjects.values())
+  logger.info('📦 getAllObjects called', {
+    count: objects.length,
+    objects: objects.map(o => ({ id: o.id, type: o.type, createdBy: o.createdBy }))
+  })
+  return objects
 }
 
 /**

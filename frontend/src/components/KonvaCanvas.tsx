@@ -1,5 +1,5 @@
-import React, { useRef, useEffect } from 'react';
-import { Stage, Layer, Rect, Circle, Line, Text, Transformer } from 'react-konva';
+import { useRef, useEffect, useState } from 'react';
+import { Stage, Layer, Rect, Circle, Line, Text, RegularPolygon, Star, Arrow } from 'react-konva';
 import Konva from 'konva';
 import { CanvasObject } from '../types';
 
@@ -10,6 +10,10 @@ interface KonvaCanvasProps {
   onTransform: (id: string, attrs: Partial<CanvasObject>) => void;
   stageWidth: number;
   stageHeight: number;
+  scale: number;
+  position: { x: number; y: number };
+  isPanning: boolean;
+  onPositionChange: (position: { x: number; y: number }) => void;
 }
 
 export function KonvaCanvas({
@@ -18,38 +22,88 @@ export function KonvaCanvas({
   onSelect,
   onTransform,
   stageWidth,
-  stageHeight
+  stageHeight,
+  scale,
+  position,
+  isPanning,
+  onPositionChange
 }: KonvaCanvasProps) {
   const stageRef = useRef<Konva.Stage>(null);
-  const transformerRef = useRef<Konva.Transformer>(null);
+  const layerRef = useRef<Konva.Layer>(null);
+  const dragStartPositions = useRef<Map<string, { x: number; y: number }>>(new Map());
+  const [selectionRect, setSelectionRect] = useState<{ x: number; y: number; width: number; height: number } | null>(null);
+  const [isSelecting, setIsSelecting] = useState(false);
+  const selectionStart = useRef<{ x: number; y: number } | null>(null);
+  const transformersRef = useRef<Map<string, Konva.Transformer>>(new Map());
 
-  // Update transformer when selection changes
+  // Create individual transformers for each selected shape
   useEffect(() => {
-    if (!transformerRef.current) return;
-
     const stage = stageRef.current;
-    if (!stage) return;
+    const layer = layerRef.current;
+    if (!stage || !layer) return;
 
-    const selectedNodes = Array.from(selectedIds).map(id => 
-      stage.findOne(`#${id}`)
-    ).filter(Boolean) as Konva.Node[];
+    // Clean up old transformers
+    transformersRef.current.forEach(tr => tr.destroy());
+    transformersRef.current.clear();
 
-    transformerRef.current.nodes(selectedNodes);
-    transformerRef.current.getLayer()?.batchDraw();
+    // Create transformer for each selected shape
+    selectedIds.forEach(id => {
+      const node = stage.findOne(`#${id}`);
+      if (node) {
+        const transformer = new Konva.Transformer({
+          nodes: [node],
+          enabledAnchors: ['top-left', 'top-right', 'bottom-left', 'bottom-right'],
+          rotateEnabled: true,
+          borderStroke: '#66B3FF',
+          borderStrokeWidth: 2,
+          borderDash: [5, 5],
+          anchorStroke: '#66B3FF',
+          anchorFill: '#FFFFFF',
+          anchorSize: 8,
+          anchorCornerRadius: 2,
+        });
+        layer.add(transformer);
+        transformersRef.current.set(id, transformer);
+      }
+    });
+
+    layer.batchDraw();
+
+    return () => {
+      transformersRef.current.forEach(tr => tr.destroy());
+      transformersRef.current.clear();
+    };
   }, [selectedIds]);
 
-  const handleSelect = (e: Konva.KonvaEventObject<MouseEvent>) => {
+  const handleMouseDown = (e: Konva.KonvaEventObject<MouseEvent | TouchEvent>) => {
     const clickedOnEmpty = e.target === e.target.getStage();
+
     if (clickedOnEmpty) {
-      onSelect(new Set());
+      // If panning mode, don't start selection
+      if (isPanning) {
+        return;
+      }
+
+      // Start area selection
+      const stage = stageRef.current;
+      if (!stage) return;
+
+      const pos = stage.getPointerPosition();
+      if (!pos) return;
+
+      setIsSelecting(true);
+      selectionStart.current = pos;
+      setSelectionRect({ x: pos.x, y: pos.y, width: 0, height: 0 });
       return;
     }
 
+    // Clicked on a shape
     const id = e.target.id();
     if (!id) return;
 
-    const isMultiSelect = e.evt.shiftKey;
+    const isMultiSelect = 'shiftKey' in e.evt && e.evt.shiftKey;
     if (isMultiSelect) {
+      // Toggle shape in selection
       const newSelection = new Set(selectedIds);
       if (newSelection.has(id)) {
         newSelection.delete(id);
@@ -58,8 +112,68 @@ export function KonvaCanvas({
       }
       onSelect(newSelection);
     } else {
-      onSelect(new Set([id]));
+      // Single select (or select if not already selected)
+      if (!selectedIds.has(id)) {
+        onSelect(new Set([id]));
+      }
     }
+  };
+
+  const handleMouseMove = () => {
+    if (!isSelecting) return;
+
+    const stage = stageRef.current;
+    if (!stage || !selectionStart.current) return;
+
+    const pos = stage.getPointerPosition();
+    if (!pos) return;
+
+    const x = Math.min(selectionStart.current.x, pos.x);
+    const y = Math.min(selectionStart.current.y, pos.y);
+    const width = Math.abs(pos.x - selectionStart.current.x);
+    const height = Math.abs(pos.y - selectionStart.current.y);
+
+    setSelectionRect({ x, y, width, height });
+  };
+
+  const handleMouseUp = () => {
+    if (!isSelecting) return;
+
+    setIsSelecting(false);
+
+    if (!selectionRect) {
+      setSelectionRect(null);
+      return;
+    }
+
+    // Select all shapes within the selection rectangle
+    const stage = stageRef.current;
+    if (!stage) {
+      setSelectionRect(null);
+      return;
+    }
+
+    const selected = new Set<string>();
+    objects.forEach(obj => {
+      const node = stage.findOne(`#${obj.id}`);
+      if (!node) return;
+
+      const box = node.getClientRect();
+
+      // Check if shape intersects with selection rectangle
+      if (
+        box.x < selectionRect.x + selectionRect.width &&
+        box.x + box.width > selectionRect.x &&
+        box.y < selectionRect.y + selectionRect.height &&
+        box.y + box.height > selectionRect.y
+      ) {
+        selected.add(obj.id);
+      }
+    });
+
+    onSelect(selected);
+    setSelectionRect(null);
+    selectionStart.current = null;
   };
 
   const handleTransformEnd = (e: Konva.KonvaEventObject<Event>) => {
@@ -83,15 +197,90 @@ export function KonvaCanvas({
     });
   };
 
+  const handleDragStart = (e: Konva.KonvaEventObject<DragEvent>) => {
+    const node = e.target;
+    const id = node.id();
+    if (!id) return;
+
+    // Store starting positions for all selected shapes
+    const stage = stageRef.current;
+    if (!stage) return;
+
+    dragStartPositions.current.clear();
+    selectedIds.forEach(selectedId => {
+      const selectedNode = stage.findOne(`#${selectedId}`);
+      if (selectedNode) {
+        dragStartPositions.current.set(selectedId, {
+          x: selectedNode.x(),
+          y: selectedNode.y()
+        });
+      }
+    });
+  };
+
+  const handleDragMove = (e: Konva.KonvaEventObject<DragEvent>) => {
+    const node = e.target;
+    const id = node.id();
+    if (!id) return;
+
+    // If multiple shapes selected, move all of them in real-time
+    if (selectedIds.size > 1 && selectedIds.has(id)) {
+      const stage = stageRef.current;
+      if (!stage) return;
+
+      const startPos = dragStartPositions.current.get(id);
+      if (!startPos) return;
+
+      const deltaX = node.x() - startPos.x;
+      const deltaY = node.y() - startPos.y;
+
+      // Move all other selected shapes by the same delta
+      selectedIds.forEach(selectedId => {
+        if (selectedId === id) return; // Skip the dragged shape
+
+        const startPosition = dragStartPositions.current.get(selectedId);
+        if (startPosition) {
+          const selectedNode = stage.findOne(`#${selectedId}`);
+          if (selectedNode) {
+            selectedNode.x(startPosition.x + deltaX);
+            selectedNode.y(startPosition.y + deltaY);
+          }
+        }
+      });
+
+      stage.batchDraw();
+    }
+  };
+
   const handleDragEnd = (e: Konva.KonvaEventObject<DragEvent>) => {
     const node = e.target;
     const id = node.id();
     if (!id) return;
 
-    onTransform(id, {
-      x: node.x(),
-      y: node.y()
+    const stage = stageRef.current;
+    if (!stage) return;
+
+    // Send final positions to backend for all selected shapes
+    selectedIds.forEach(selectedId => {
+      const selectedNode = stage.findOne(`#${selectedId}`);
+      if (selectedNode) {
+        onTransform(selectedId, {
+          x: selectedNode.x(),
+          y: selectedNode.y()
+        });
+      }
     });
+
+    dragStartPositions.current.clear();
+  };
+
+  const handleStageDragEnd = (e: Konva.KonvaEventObject<DragEvent>) => {
+    if (isPanning) {
+      onPositionChange({
+        x: e.target.x(),
+        y: e.target.y()
+      });
+    }
   };
 
   return (
@@ -99,10 +288,19 @@ export function KonvaCanvas({
       ref={stageRef}
       width={stageWidth}
       height={stageHeight}
-      onMouseDown={handleSelect}
-      onTouchStart={handleSelect}
+      scaleX={scale}
+      scaleY={scale}
+      x={position.x}
+      y={position.y}
+      draggable={isPanning}
+      onDragEnd={handleStageDragEnd}
+      onMouseDown={handleMouseDown}
+      onMouseMove={handleMouseMove}
+      onMouseUp={handleMouseUp}
+      onTouchStart={handleMouseDown}
+      style={{ cursor: isPanning ? 'grab' : 'default' }}
     >
-      <Layer>
+      <Layer ref={layerRef}>
         {objects.map(obj => {
           switch (obj.type) {
             case 'rectangle':
@@ -117,6 +315,8 @@ export function KonvaCanvas({
                   rotation={obj.rotation}
                   fill={obj.color}
                   draggable
+                  onDragStart={handleDragStart}
+                  onDragMove={handleDragMove}
                   onDragEnd={handleDragEnd}
                   onTransformEnd={handleTransformEnd}
                 />
@@ -133,6 +333,8 @@ export function KonvaCanvas({
                   rotation={obj.rotation}
                   fill={obj.color}
                   draggable
+                  onDragStart={handleDragStart}
+                  onDragMove={handleDragMove}
                   onDragEnd={handleDragEnd}
                   onTransformEnd={handleTransformEnd}
                 />
@@ -151,6 +353,8 @@ export function KonvaCanvas({
                   fill={obj.color}
                   rotation={obj.rotation}
                   draggable
+                  onDragStart={handleDragStart}
+                  onDragMove={handleDragMove}
                   onDragEnd={handleDragEnd}
                   onTransformEnd={handleTransformEnd}
                 />
@@ -166,6 +370,165 @@ export function KonvaCanvas({
                   strokeWidth={3}
                   rotation={obj.rotation}
                   draggable
+                  onDragStart={handleDragStart}
+                  onDragMove={handleDragMove}
+                  onDragEnd={handleDragEnd}
+                  onTransformEnd={handleTransformEnd}
+                />
+              );
+
+            case 'triangle':
+              return (
+                <RegularPolygon
+                  key={obj.id}
+                  id={obj.id}
+                  x={obj.x}
+                  y={obj.y}
+                  sides={3}
+                  radius={obj.width / 2}
+                  fill={obj.color}
+                  rotation={obj.rotation}
+                  draggable
+                  onDragStart={handleDragStart}
+                  onDragMove={handleDragMove}
+                  onDragEnd={handleDragEnd}
+                  onTransformEnd={handleTransformEnd}
+                />
+              );
+
+            case 'polygon':
+              return (
+                <RegularPolygon
+                  key={obj.id}
+                  id={obj.id}
+                  x={obj.x}
+                  y={obj.y}
+                  sides={6}
+                  radius={obj.width / 2}
+                  fill={obj.color}
+                  rotation={obj.rotation}
+                  draggable
+                  onDragStart={handleDragStart}
+                  onDragMove={handleDragMove}
+                  onDragEnd={handleDragEnd}
+                  onTransformEnd={handleTransformEnd}
+                />
+              );
+
+            case 'star':
+              return (
+                <Star
+                  key={obj.id}
+                  id={obj.id}
+                  x={obj.x}
+                  y={obj.y}
+                  numPoints={5}
+                  innerRadius={obj.width / 4}
+                  outerRadius={obj.width / 2}
+                  fill={obj.color}
+                  rotation={obj.rotation}
+                  draggable
+                  onDragStart={handleDragStart}
+                  onDragMove={handleDragMove}
+                  onDragEnd={handleDragEnd}
+                  onTransformEnd={handleTransformEnd}
+                />
+              );
+
+            case 'arrow':
+              return (
+                <Arrow
+                  key={obj.id}
+                  id={obj.id}
+                  points={[0, 0, obj.width, 0]}
+                  x={obj.x}
+                  y={obj.y}
+                  pointerLength={10}
+                  pointerWidth={10}
+                  fill={obj.color}
+                  stroke={obj.color}
+                  strokeWidth={3}
+                  rotation={obj.rotation}
+                  draggable
+                  onDragStart={handleDragStart}
+                  onDragMove={handleDragMove}
+                  onDragEnd={handleDragEnd}
+                  onTransformEnd={handleTransformEnd}
+                />
+              );
+
+            case 'ellipse':
+              return (
+                <Circle
+                  key={obj.id}
+                  id={obj.id}
+                  x={obj.x}
+                  y={obj.y}
+                  radiusX={obj.width / 2}
+                  radiusY={obj.height / 2}
+                  fill={obj.color}
+                  rotation={obj.rotation}
+                  draggable
+                  onDragStart={handleDragStart}
+                  onDragMove={handleDragMove}
+                  onDragEnd={handleDragEnd}
+                  onTransformEnd={handleTransformEnd}
+                />
+              );
+
+            case 'roundedRect':
+              return (
+                <Rect
+                  key={obj.id}
+                  id={obj.id}
+                  x={obj.x}
+                  y={obj.y}
+                  width={obj.width}
+                  height={obj.height}
+                  cornerRadius={10}
+                  rotation={obj.rotation}
+                  fill={obj.color}
+                  draggable
+                  onDragStart={handleDragStart}
+                  onDragMove={handleDragMove}
+                  onDragEnd={handleDragEnd}
+                  onTransformEnd={handleTransformEnd}
+                />
+              );
+
+            case 'diamond':
+              return (
+                <RegularPolygon
+                  key={obj.id}
+                  id={obj.id}
+                  x={obj.x}
+                  y={obj.y}
+                  sides={4}
+                  radius={obj.width / 2}
+                  fill={obj.color}
+                  rotation={obj.rotation + 45}
+                  draggable
+                  onDragStart={handleDragStart}
+                  onDragMove={handleDragMove}
+                  onDragEnd={handleDragEnd}
+                  onTransformEnd={handleTransformEnd}
+                />
+              );
+
+            case 'pentagon':
+              return (
+                <RegularPolygon
+                  key={obj.id}
+                  id={obj.id}
+                  x={obj.x}
+                  y={obj.y}
+                  sides={5}
+                  radius={obj.width / 2}
+                  fill={obj.color}
+                  rotation={obj.rotation}
+                  draggable
+                  onDragStart={handleDragStart}
+                  onDragMove={handleDragMove}
                   onDragEnd={handleDragEnd}
                   onTransformEnd={handleTransformEnd}
                 />
@@ -176,16 +539,20 @@ export function KonvaCanvas({
           }
         })}
 
-        <Transformer
-          ref={transformerRef}
-          boundBoxFunc={(oldBox, newBox) => {
-            // Limit resize to minimum 5x5
-            if (newBox.width < 5 || newBox.height < 5) {
-              return oldBox;
-            }
-            return newBox;
-          }}
-        />
+        {/* Area selection rectangle */}
+        {selectionRect && (
+          <Rect
+            x={selectionRect.x}
+            y={selectionRect.y}
+            width={selectionRect.width}
+            height={selectionRect.height}
+            fill="rgba(0, 102, 255, 0.1)"
+            stroke="#0066FF"
+            strokeWidth={2}
+            dash={[5, 5]}
+            listening={false}
+          />
+        )}
       </Layer>
     </Stage>
   );
