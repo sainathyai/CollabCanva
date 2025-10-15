@@ -2,13 +2,8 @@ import { useEffect, useState, useRef, useCallback } from 'react'
 import { getCurrentUser } from '../lib/auth'
 import { wsClient, MessageType, type WSMessage } from '../lib/ws'
 import type { CanvasObject, Presence } from '../types'
-import {
-  createRectangle,
-  renderAllObjects,
-  findObjectAtPoint,
-  screenToCanvas,
-  getRandomColor
-} from '../lib/canvas'
+import { getRandomColor } from '../lib/canvas'
+import { KonvaCanvas } from '../components/KonvaCanvas'
 import Toolbar from '../components/Toolbar'
 import CursorOverlay from '../components/CursorOverlay'
 
@@ -21,16 +16,14 @@ const getUserColor = (userId: string): string => {
 
 function Canvas() {
   const [objects, setObjects] = useState<CanvasObject[]>([])
-  const [selectedObjectId, setSelectedObjectId] = useState<string | null>(null)
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
   const [isConnected, setIsConnected] = useState(false)
   const [isAuthenticated, setIsAuthenticated] = useState(false)
-  const [isDragging, setIsDragging] = useState(false)
-  const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 })
   const [, setHasReceivedInitialState] = useState(false)
   const [presences, setPresences] = useState<Map<string, Presence>>(new Map())
   const [canvasOffset, setCanvasOffset] = useState({ left: 0, top: 0 })
+  const [stageSize, setStageSize] = useState({ width: 800, height: 600 })
   
-  const canvasRef = useRef<HTMLCanvasElement>(null)
   const containerRef = useRef<HTMLDivElement>(null)
   const user = getCurrentUser()
   const lastCursorUpdate = useRef<number>(0)
@@ -121,9 +114,11 @@ function Canvas() {
       case MessageType.OBJECT_DELETE:
         if ('objectId' in message) {
           setObjects(prev => prev.filter(obj => obj.id !== message.objectId))
-          if (selectedObjectId === message.objectId) {
-            setSelectedObjectId(null)
-          }
+          setSelectedIds(prev => {
+            const newSet = new Set(prev)
+            newSet.delete(message.objectId)
+            return newSet
+          })
         }
         break
 
@@ -173,40 +168,31 @@ function Canvas() {
     }
   }
 
-  // Calculate canvas offset relative to container
+  // Calculate stage size and container offset
   useEffect(() => {
-    const updateCanvasOffset = () => {
-      const canvas = canvasRef.current
+    const updateSize = () => {
       const container = containerRef.current
-      if (!canvas || !container) return
+      if (!container) return
 
-      const canvasRect = canvas.getBoundingClientRect()
+      setStageSize({
+        width: container.offsetWidth,
+        height: container.offsetHeight
+      })
+
       const containerRect = container.getBoundingClientRect()
-
       setCanvasOffset({
-        left: canvasRect.left - containerRect.left,
-        top: canvasRect.top - containerRect.top
+        left: containerRect.left,
+        top: containerRect.top
       })
     }
 
-    updateCanvasOffset()
-    window.addEventListener('resize', updateCanvasOffset)
+    updateSize()
+    window.addEventListener('resize', updateSize)
     
     return () => {
-      window.removeEventListener('resize', updateCanvasOffset)
+      window.removeEventListener('resize', updateSize)
     }
   }, [])
-
-  // Render canvas whenever objects change
-  useEffect(() => {
-    const canvas = canvasRef.current
-    if (!canvas) return
-
-    const ctx = canvas.getContext('2d')
-    if (!ctx) return
-
-    renderAllObjects(ctx, objects, selectedObjectId || undefined)
-  }, [objects, selectedObjectId])
 
   // Handle adding a new rectangle
   const handleAddRectangle = () => {
@@ -220,57 +206,47 @@ function Canvas() {
       return
     }
 
-    const newRect = createRectangle(
-      Math.random() * 600 + 50,
-      Math.random() * 400 + 50,
-      150,
-      100,
-      getRandomColor(),
-      user.uid
-    )
+    const newRect: CanvasObject = {
+      id: crypto.randomUUID(),
+      type: 'rectangle',
+      x: Math.random() * 600 + 50,
+      y: Math.random() * 400 + 50,
+      width: 150,
+      height: 100,
+      rotation: 0,
+      color: getRandomColor(),
+      zIndex: objects.length,
+      createdBy: user.uid,
+      createdAt: new Date().toISOString()
+    }
 
     wsClient.createObject(newRect)
   }
 
-  // Handle canvas click
-  const handleCanvasClick = (e: React.MouseEvent<HTMLCanvasElement>) => {
-    const canvas = canvasRef.current
-    if (!canvas || isDragging) return
-
-    const rect = canvas.getBoundingClientRect()
-    const { x, y } = screenToCanvas(e.clientX, e.clientY, rect)
-
-    const clickedObject = findObjectAtPoint(x, y, objects)
-    setSelectedObjectId(clickedObject ? clickedObject.id : null)
+  // Handle object selection from Konva
+  const handleSelect = (ids: Set<string>) => {
+    setSelectedIds(ids)
   }
 
-  // Handle mouse down for dragging
-  const handleMouseDown = (e: React.MouseEvent<HTMLCanvasElement>) => {
-    if (!selectedObjectId) return
-
-    const canvas = canvasRef.current
-    if (!canvas) return
-
-    const rect = canvas.getBoundingClientRect()
-    const { x, y } = screenToCanvas(e.clientX, e.clientY, rect)
-
-    const selectedObj = objects.find(obj => obj.id === selectedObjectId)
-    if (selectedObj) {
-      setIsDragging(true)
-      setDragOffset({
-        x: x - selectedObj.x,
-        y: y - selectedObj.y
-      })
-    }
+  // Handle object transform from Konva (drag, resize, rotate)
+  const handleTransform = (id: string, attrs: Partial<CanvasObject>) => {
+    wsClient.updateObject({
+      id,
+      ...attrs,
+      updatedAt: new Date().toISOString()
+    })
   }
 
-  // Handle mouse move for both dragging and cursor tracking
-  const handleMouseMove = useCallback((e: React.MouseEvent<HTMLCanvasElement>) => {
-    const canvas = canvasRef.current
-    if (!canvas || !isAuthenticated) return
+  // Handle mouse move for cursor tracking
+  const handleMouseMove = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
+    if (!isAuthenticated) return
 
-    const rect = canvas.getBoundingClientRect()
-    const { x, y } = screenToCanvas(e.clientX, e.clientY, rect)
+    const container = containerRef.current
+    if (!container) return
+
+    const rect = container.getBoundingClientRect()
+    const x = e.clientX - rect.left
+    const y = e.clientY - rect.top
 
     // Send cursor position (throttled to ~60fps)
     const now = Date.now()
@@ -278,36 +254,19 @@ function Canvas() {
       wsClient.updateCursor(x, y)
       lastCursorUpdate.current = now
     }
+  }, [isAuthenticated])
 
-    // Handle dragging if active
-    if (isDragging && selectedObjectId) {
-      const newX = x - dragOffset.x
-      const newY = y - dragOffset.y
-
-      wsClient.updateObject({
-        id: selectedObjectId,
-        x: newX,
-        y: newY
-      })
-    }
-  }, [isDragging, selectedObjectId, isAuthenticated, dragOffset])
-
-  // Handle mouse up to stop dragging
-  const handleMouseUp = () => {
-    setIsDragging(false)
-  }
-
-  // Handle delete selected object
+  // Handle delete selected objects
   const handleDeleteSelected = () => {
     if (!isAuthenticated) {
       alert('Please wait... authenticating with server')
       return
     }
     
-    if (selectedObjectId) {
-      wsClient.deleteObject(selectedObjectId)
-      setSelectedObjectId(null)
-    }
+    selectedIds.forEach(id => {
+      wsClient.deleteObject(id)
+    })
+    setSelectedIds(new Set())
   }
 
   return (
@@ -316,28 +275,35 @@ function Canvas() {
         isConnected={isConnected}
         isAuthenticated={isAuthenticated}
         objectCount={objects.length}
-        hasSelection={selectedObjectId !== null}
+        hasSelection={selectedIds.size > 0}
         onAddRectangle={handleAddRectangle}
         onDeleteSelected={handleDeleteSelected}
       />
 
-      <div ref={containerRef} className="canvas-container" style={{ position: 'relative' }}>
-        <canvas
-          ref={canvasRef}
-          width={800}
-          height={600}
-          className="canvas"
-          onClick={handleCanvasClick}
-          onMouseDown={handleMouseDown}
-          onMouseMove={handleMouseMove}
-          onMouseUp={handleMouseUp}
-          onMouseLeave={handleMouseUp}
+      <div 
+        ref={containerRef} 
+        className="canvas-container" 
+        style={{ position: 'relative', width: '100%', height: 'calc(100vh - 60px)' }}
+        onMouseMove={handleMouseMove}
+      >
+        <KonvaCanvas
+          objects={objects}
+          selectedIds={selectedIds}
+          onSelect={handleSelect}
+          onTransform={handleTransform}
+          stageWidth={stageSize.width}
+          stageHeight={stageSize.height}
         />
         <CursorOverlay
           presences={Array.from(presences.values())}
           currentUserId={user?.uid}
           canvasOffset={canvasOffset}
         />
+        {!isConnected && (
+          <div style={{ position: 'absolute', top: 10, right: 10, padding: '8px 16px', background: '#fbbf24', borderRadius: '4px' }}>
+            Connecting...
+          </div>
+        )}
       </div>
     </div>
   )
