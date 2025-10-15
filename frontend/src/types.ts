@@ -7,17 +7,30 @@ export interface User {
   photoURL: string | null;
 }
 
+export type ShapeType = 'rectangle' | 'circle' | 'line' | 'text';
+
 export interface CanvasObject {
   id: string;
-  type: 'rectangle';
+  type: ShapeType;
   x: number;
   y: number;
   width: number;
   height: number;
-  fill: string;
+  rotation: number;  // NEW: for Konva rotation
+  color: string;     // NEW: renamed from 'fill' for consistency
+  zIndex: number;    // NEW: for layer management
+  
+  // Text-specific fields
+  text?: string;
+  fontSize?: number;
+  fontFamily?: string;
+  
+  // Line-specific fields
+  points?: number[]; // [x1, y1, x2, y2]
+  
   createdBy: string;
   createdAt: string; // ISO timestamp
-  updatedAt: string; // ISO timestamp
+  updatedAt?: string; // ISO timestamp (optional)
 }
 
 export interface Presence {
