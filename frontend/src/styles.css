@@ -307,6 +307,39 @@ button:disabled {
   }
 }
 
+/* Konva Canvas Styles */
+.toolbar-section {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+}
+
+.toolbar-label {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+  font-size: 0.875rem;
+  color: var(--text-secondary);
+}
+
+.color-picker {
+  width: 40px;
+  height: 32px;
+  border: 1px solid var(--border);
+  border-radius: 0.375rem;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.color-picker:hover:not(:disabled) {
+  border-color: var(--primary-color);
+}
+
+.color-picker:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
 /* Utilities */
 .text-muted {
   color: var(--text-muted);
