@@ -1,18 +1,8 @@
 // In-memory canvas state management
 import { logger } from '../utils/logger.js'
+import type { CanvasObject } from '../ws/messageTypes.js'
 
-export interface CanvasObject {
-  id: string
-  type: 'rectangle' // Extensible for future shapes
-  x: number
-  y: number
-  width: number
-  height: number
-  fill: string
-  createdBy: string
-  createdAt: string
-  updatedAt: string
-}
+export type { CanvasObject }
 
 // In-memory store for canvas objects
 const canvasObjects = new Map<string, CanvasObject>()
@@ -46,7 +36,9 @@ export function updateObject(object: Partial<CanvasObject> & { id: string }): Ca
       y: 0,
       width: 100,
       height: 100,
-      fill: '#000000',
+      rotation: 0,
+      color: '#000000',
+      zIndex: 0,
       createdBy: 'unknown',
       createdAt: new Date().toISOString(),
       ...object,
