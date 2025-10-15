@@ -194,8 +194,8 @@ function Canvas() {
     }
   }, [])
 
-  // Handle adding a new rectangle
-  const handleAddRectangle = () => {
+  // Handle adding shapes (generic for all types)
+  const handleAddShape = (type: 'rectangle' | 'circle' | 'text' | 'line') => {
     if (!user) {
       alert('You must be logged in to add objects')
       return
@@ -206,22 +206,28 @@ function Canvas() {
       return
     }
 
-    const newRect: CanvasObject = {
+    const newObject: CanvasObject = {
       id: crypto.randomUUID(),
-      type: 'rectangle',
+      type,
       x: Math.random() * 600 + 50,
       y: Math.random() * 400 + 50,
-      width: 150,
-      height: 100,
+      width: type === 'line' ? 0 : type === 'text' ? 200 : 150,
+      height: type === 'line' ? 0 : type === 'text' ? 50 : 100,
       rotation: 0,
-      color: getRandomColor(),
+      color: type === 'text' ? '#000000' : getRandomColor(),
       zIndex: objects.length,
+      text: type === 'text' ? 'New Text' : undefined,
+      fontSize: type === 'text' ? 16 : undefined,
+      points: type === 'line' ? [0, 0, 100, 0] : undefined,
       createdBy: user.uid,
       createdAt: new Date().toISOString()
     }
 
-    wsClient.createObject(newRect)
+    wsClient.createObject(newObject)
   }
+
+  // Wrapper for backward compatibility
+  const handleAddRectangle = () => handleAddShape('rectangle')
 
   // Handle object selection from Konva
   const handleSelect = (ids: Set<string>) => {
@@ -256,6 +262,39 @@ function Canvas() {
     }
   }, [isAuthenticated])
 
+  // Handle duplicate selected objects
+  const handleDuplicate = () => {
+    if (!isAuthenticated) {
+      alert('Please wait... authenticating with server')
+      return
+    }
+
+    const selectedObjects = objects.filter(obj => selectedIds.has(obj.id))
+    selectedObjects.forEach(obj => {
+      const duplicate: CanvasObject = {
+        ...obj,
+        id: crypto.randomUUID(),
+        x: obj.x + 20,
+        y: obj.y + 20,
+        createdAt: new Date().toISOString()
+      }
+      wsClient.createObject(duplicate)
+    })
+  }
+
+  // Handle color change for selected objects
+  const handleColorChange = (color: string) => {
+    if (!isAuthenticated) return
+
+    selectedIds.forEach(id => {
+      wsClient.updateObject({
+        id,
+        color,
+        updatedAt: new Date().toISOString()
+      })
+    })
+  }
+
   // Handle delete selected objects
   const handleDeleteSelected = () => {
     if (!isAuthenticated) {
@@ -269,6 +308,29 @@ function Canvas() {
     setSelectedIds(new Set())
   }
 
+  // Keyboard shortcuts
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // Delete or Backspace: delete selected
+      if ((e.key === 'Delete' || e.key === 'Backspace') && selectedIds.size > 0) {
+        e.preventDefault()
+        handleDeleteSelected()
+      }
+      // Ctrl+D: duplicate
+      if (e.ctrlKey && e.key === 'd' && selectedIds.size > 0) {
+        e.preventDefault()
+        handleDuplicate()
+      }
+      // Escape: deselect all
+      if (e.key === 'Escape') {
+        setSelectedIds(new Set())
+      }
+    }
+
+    window.addEventListener('keydown', handleKeyDown)
+    return () => window.removeEventListener('keydown', handleKeyDown)
+  }, [selectedIds, isAuthenticated, objects])
+
   return (
     <div className="canvas-page">
       <Toolbar
@@ -276,7 +338,11 @@ function Canvas() {
         isAuthenticated={isAuthenticated}
         objectCount={objects.length}
         hasSelection={selectedIds.size > 0}
+        selectedCount={selectedIds.size}
         onAddRectangle={handleAddRectangle}
+        onAddShape={handleAddShape}
+        onDuplicate={handleDuplicate}
+        onColorChange={handleColorChange}
         onDeleteSelected={handleDeleteSelected}
       />
 
