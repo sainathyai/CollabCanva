@@ -37,3 +37,4 @@ HTMLCanvasElement.prototype.getContext = vi.fn(() => ({
   canvas: { width: 800, height: 600 }
 })) as any
 
+

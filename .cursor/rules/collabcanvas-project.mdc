@@ -1,0 +1,353 @@
+Description: CollabCanvas project-specific patterns, decisions, and guidelines
+Globs: **/*.{ts,tsx,js,jsx,md}
+
+---
+
+# CollabCanvas Project Rules
+
+## Project Overview
+This is a real-time collaborative canvas application with live cursors and object synchronization. The project is COMPLETE and deployed at:
+- Frontend: https://collab-canva-jdte.vercel.app
+- Backend: https://collabcanva-backend.onrender.com
+
+## Critical Context
+**ALWAYS read the Memory Bank first**: `memory-bank/*.md` files contain complete project context.
+
+## Architecture Decisions
+
+### WebSocket Communication
+- **Single WebSocket connection** per client (singleton pattern in `frontend/src/lib/ws.ts`)
+- **Authentication required** before any operations
+- **Message protocol**: Type-based routing with TypeScript enums
+- **Broadcast pattern**: Send to all clients except sender
+
+### State Management
+- **Backend**: In-memory state (no database) - acceptable for MVP
+- **Frontend**: React useState with WebSocket sync
+- **Eventual consistency**: Optimistic updates + broadcast
+- **No conflict resolution**: Last-write-wins (acceptable with low user count)
+
+### Authentication Flow
+```
+1. User signs in with Firebase (Google OAuth) on frontend
+2. Frontend gets ID token from Firebase
+3. Frontend opens WebSocket, sends 'auth' message with token
+4. Backend verifies token with Firebase Admin SDK
+5. Backend stores user claims in connectedClients Map
+6. All subsequent operations check authentication
+```
+
+## Code Patterns to Follow
+
+### Frontend WebSocket Usage
+```typescript
+// Always use the singleton instance
+import { wsClient } from '@/lib/ws'
+
+// Send messages with type-safe enums
+wsClient.send({ 
+  type: MessageType.OBJECT_CREATE, 
+  object: {...} 
+})
+
+// Register message handlers
+wsClient.addMessageHandler((message) => {
+  switch (message.type) {
+    case MessageType.INITIAL_STATE:
+      // handle
+      break
+  }
+})
+```
+
+### Backend Message Handling
+```typescript
+// In ws/handlers.ts
+export function handleMessage(ws: WebSocket, data: string) {
+  const message = JSON.parse(data)
+  
+  // Check authentication for protected operations
+  if (!connectedClients.has(ws)) {
+    return sendError(ws, 'Not authenticated')
+  }
+  
+  // Route by message type
+  switch (message.type) {
+    case 'object.create':
+      return handleObjectCreate(ws, message)
+  }
+}
+```
+
+### TypeScript Message Types
+- Keep message type enums in sync between frontend and backend
+- Frontend: `frontend/src/lib/ws.ts` (MessageType enum)
+- Backend: `backend/src/ws/messageTypes.ts` (message interfaces)
+- Always use enum values, not string literals in switch cases
+
+## Common Pitfalls & Solutions
+
+### Issue: TypeScript Build Errors on Deployment
+**Problem**: Render/Vercel can't find type definitions  
+**Solution**: 
+- Render: Use `npm ci --include=dev && npm run build` to install devDependencies
+- Never set `NODE_ENV=production` during build step (blocks devDeps)
+- Set `NODE_ENV=production` in start command instead
+
+### Issue: WebSocket Types
+**Problem**: `ws` module has implicit any types  
+**Solution**: 
+- Install `@types/ws` as devDependency
+- Don't restrict `types` in tsconfig.json
+- Add explicit types to error handlers: `(error: Error) =>`
+
+### Issue: Presence Message Types Not in Enum
+**Problem**: TypeScript errors on `'presence.join'` etc.  
+**Solution**: Add to MessageType enum:
+```typescript
+PRESENCE_JOIN = 'presence.join',
+PRESENCE_CURSOR = 'presence.cursor',
+PRESENCE_LEAVE = 'presence.leave',
+```
+
+### Issue: Render Start Command Fails
+**Problem**: `Cannot find module '/opt/render/project/src/backend/dist/index.js'`  
+**Solution**: Check compiled output file name - should be `dist/server.js` (from `src/server.ts`)
+
+### Issue: Firebase Auth Fails on Deployment
+**Problem**: `auth/unauthorized-domain` error  
+**Solution**: 
+1. Add deployment domain to Firebase Console → Authentication → Settings → Authorized domains
+2. Update ALLOWED_ORIGINS environment variable in backend
+
+## File Organization
+
+### Frontend Structure
+```
+src/
+├── pages/          # Route components (Login, Canvas)
+├── components/     # Reusable UI (Header, Toolbar, CursorOverlay)
+├── routes/         # Router configuration
+├── lib/            # Utilities (auth, ws, canvas logic)
+└── types.ts        # Shared TypeScript interfaces
+```
+
+### Backend Structure
+```
+src/
+├── server.ts       # Entry point (HTTP + WebSocket)
+├── ws/             # WebSocket handlers and message routing
+├── state/          # In-memory state management
+├── auth/           # Firebase token verification
+├── http/           # Health check endpoint
+└── utils/          # Logger and utilities
+```
+
+## Environment Variables
+
+### Critical: Never commit .env files
+- Frontend uses `VITE_` prefix for env vars
+- Backend uses standard env vars
+- Keep `.env.example` updated as template
+- Vercel/Render: Set via dashboard, not in code
+
+### Local Development
+```bash
+# Frontend .env
+VITE_WS_URL=ws://localhost:8080
+
+# Backend .env  
+PORT=8080
+ALLOWED_ORIGINS=http://localhost:5173
+NODE_ENV=development
+```
+
+### Production
+```bash
+# Frontend (Vercel)
+VITE_WS_URL=wss://collabcanva-backend.onrender.com
+
+# Backend (Render)
+ALLOWED_ORIGINS=https://collab-canva-jdte.vercel.app
+NODE_ENV=production  # Set in startCommand, not as env var
+```
+
+## Deployment Checklist
+
+### Before Deploying
+- [ ] TypeScript compiles locally: `npm run build`
+- [ ] Tests pass: `npm test`
+- [ ] Environment variables set in platform dashboards
+- [ ] Firebase authorized domains include deployment URL
+
+### After Deploying
+- [ ] Check logs for errors
+- [ ] Test authentication with Google OAuth
+- [ ] Test with 2 browsers/accounts
+- [ ] Verify cursors sync
+- [ ] Verify object operations work
+
+## Testing Approach
+
+### Manual Smoke Testing (Primary)
+See `docs/SMOKE_TEST.md` for scenarios:
+1. Open 2 browsers (or 1 + incognito)
+2. Sign in with different Google accounts
+3. Verify cursors, objects, real-time sync
+
+### Automated Testing (Minimal)
+- Basic unit tests in `Canvas.test.tsx` and `canvas.test.ts`
+- Vitest configured but coverage is minimal
+- Acceptable for MVP - expand if needed
+
+## Performance Optimizations
+
+### Cursor Throttling
+```typescript
+// Frontend: Limit to ~60 FPS
+const CURSOR_THROTTLE_MS = 16
+
+if (now - lastCursorUpdate.current >= CURSOR_THROTTLE_MS) {
+  wsClient.send({ type: 'presence.cursor', x, y })
+}
+```
+
+### Canvas Rendering
+- Only redraw on state changes (useEffect dependency array)
+- For optimization: Could track dirty regions and partial redraw
+
+### WebSocket Reconnection
+- Exponential backoff with max 5 retries
+- User sees "Reconnecting..." message
+- Auto-syncs state on successful reconnection
+
+## Known Limitations (By Design)
+
+### Render Free Tier Cold Starts
+- Server sleeps after 15 min inactivity
+- First request: 30-60 second startup time
+- **Acceptable**: Documented in user-facing docs
+- **Fix if needed**: Upgrade to $7/month paid tier
+
+### In-Memory State
+- All data lost on server restart
+- **Acceptable**: MVP scope, learning project
+- **Fix if needed**: Add Firestore or PostgreSQL persistence
+
+### Single Canvas
+- All users share one global canvas
+- **Acceptable**: Simplified MVP scope
+- **Fix if needed**: Add room/session system with unique IDs
+
+## Git Workflow
+
+### Branch Naming
+Pattern: `pr{N}-{feature-name}`
+Examples: `pr1-repo-scaffold`, `pr2-frontend-scaffold`
+
+### Main Branch
+- **Production-ready code only**
+- Auto-deploys to Vercel + Render
+- Merge PRs via GitHub after review
+
+### Commit Messages
+```
+type: brief description
+
+- Detailed changes
+- More details
+
+Fixes: #123 (if applicable)
+```
+
+Types: feat, fix, docs, refactor, test, chore
+
+## User Preferences (Observed)
+
+### Development Style
+- Iterative approach - fix issues as they arise
+- Values working software first, documents after
+- Comfortable with terminal and Git
+- Prefers clear, actionable instructions
+
+### Communication Style
+- Direct and concise
+- Appreciates explanations of "why"
+- Likes checklists and step-by-step guides
+- Values emojis for visual scanning (✅ ❌ 🎉 ⚠️)
+
+## Future Enhancement Ideas
+
+### If Continuing Beyond MVP
+1. **Persistence**: Add Firestore or PostgreSQL
+2. **Multiple Canvases**: Room system with IDs
+3. **More Shapes**: Circles, lines, text, images
+4. **Undo/Redo**: Operation history
+5. **Permissions**: Private canvases, access control
+6. **Export**: Save as PNG/SVG
+7. **Mobile**: Touch-optimized UI
+8. **Performance**: Paid hosting tier, no cold starts
+
+## Troubleshooting Guide
+
+### "WebSocket closed" on Frontend
+1. Check backend is running and healthy: `curl https://collabcanva-backend.onrender.com/health`
+2. Check CORS: Ensure ALLOWED_ORIGINS includes frontend URL
+3. Check logs in Render dashboard
+
+### "Token verification failed"
+1. Verify Firebase project ID matches in both frontend and backend configs
+2. Check Firebase Admin SDK initialized correctly
+3. Verify token is being sent in auth message
+4. Check Render logs for detailed error
+
+### Objects Not Syncing
+1. Check WebSocket connection status
+2. Verify authentication succeeded (check for 'auth.success' message)
+3. Check browser console for errors
+4. Check backend logs for broadcast issues
+
+### Deployment Build Fails
+1. Check TypeScript compiles locally first
+2. Verify all dependencies in package.json
+3. For backend: Ensure build command includes devDependencies
+4. Check platform logs for specific error
+
+## Quick Reference Commands
+
+### Local Development
+```bash
+# Frontend
+cd frontend && npm run dev  # http://localhost:5173
+
+# Backend
+cd backend && npm run dev   # ws://localhost:8080
+```
+
+### Deploy
+```bash
+git push origin main  # Auto-deploys both services
+```
+
+### Check Deployment
+```bash
+# Backend health
+curl https://collabcanva-backend.onrender.com/health
+
+# Frontend
+open https://collab-canva-jdte.vercel.app
+```
+
+---
+
+## Summary
+
+This project is **complete and deployed**. All MVP features work. When working on this project:
+
+1. **Read Memory Bank first** (`memory-bank/*.md`)
+2. **Follow established patterns** (WebSocket singleton, message routing, etc.)
+3. **Test with 2 browsers** for any changes
+4. **Watch for deployment gotchas** (devDependencies, NODE_ENV, file paths)
+5. **Document significant changes** in appropriate memory-bank files
+
+The codebase is clean, well-structured, and ready for further development or use as a portfolio piece.

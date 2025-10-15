@@ -1,0 +1,271 @@
+COLLABCANVAS DEMO VIDEO SCRIPT (3-5 MINUTES)
+Architecture-Focused Walkthrough
+
+================================================================================
+
+INTRODUCTION (30 seconds)
+--------------------------------------------------------------------------------
+
+"Hi, I'm Sainatha. This is CollabCanvas - a real-time collaborative canvas I
+built in 24 hours using AI-first development with Cursor.
+
+Let me show you the live application and explain the architecture behind it."
+
+[Show: Browser at https://collab-canva-jdte.vercel.app]
+
+
+================================================================================
+
+LIVE DEMO (1 minute)
+--------------------------------------------------------------------------------
+
+"First, let me demonstrate the core features. I'll sign in with Google OAuth..."
+
+[Action: Sign in with Google]
+
+"And now I'll open a second browser window to show real-time collaboration..."
+
+[Action: Open incognito window, sign in with different account]
+
+"Watch what happens when I add a rectangle in this window..."
+
+[Action: Click "Add Rectangle" in browser 1]
+
+"It appears instantly in the second window. And if I drag it..."
+
+[Action: Drag rectangle in browser 1]
+
+"The position updates in real-time across both clients."
+
+[Action: Move mouse in browser 1]
+
+"You can also see my live cursor with my name in the second window. This is
+presence awareness - both users always know where the other person is working."
+
+[Action: Delete an object]
+
+"And deletions sync immediately too."
+
+
+================================================================================
+
+ARCHITECTURE OVERVIEW (2-3 minutes)
+--------------------------------------------------------------------------------
+
+"Now let me explain how this works architecturally."
+
+[Show: Open docs/ARCHITECTURE_DETAILED.md or draw on screen]
+
+
+THE THREE-LAYER ARCHITECTURE
+--------------------------------------------------------------------------------
+
+"The system has three main layers:
+
+1. FRONTEND - React app hosted on Vercel
+2. BACKEND - Node.js WebSocket server on Render
+3. FIREBASE - For authentication
+
+Let me walk through each."
+
+
+FRONTEND ARCHITECTURE
+--------------------------------------------------------------------------------
+
+"The frontend is a React app built with Vite and TypeScript. The key components
+are:
+
+- Canvas.tsx - This is the main component that manages the canvas state and
+  handles WebSocket messages
+
+- WebSocket Client - A singleton pattern in ws.ts that maintains a single
+  persistent connection to the backend
+
+- CursorOverlay - Renders other users' cursors with their names
+
+The frontend uses OPTIMISTIC UPDATES - when you create an object, it shows up
+immediately in your browser, then syncs with the server. This makes it feel
+instant even with network latency."
+
+
+BACKEND ARCHITECTURE
+--------------------------------------------------------------------------------
+
+"The backend is a Node.js WebSocket server. Here's what makes it work:
+
+- WebSocket Server - Handles persistent bidirectional connections. This is
+  critical - not HTTP polling, actual WebSocket connections for true real-time
+  communication.
+
+- Message Router - In handlers.ts, all messages are routed by type. We have
+  types like 'object.create', 'object.update', 'presence.cursor', etc.
+
+- In-Memory State - Two key stores:
+  * Canvas State - An array of all objects on the canvas
+  * Presence State - A map of all connected users and their cursor positions
+
+- Broadcast Pattern - When User A makes a change, the server broadcasts it to
+  all OTHER connected clients. User A doesn't get their own message back since
+  they already updated optimistically.
+
+For the MVP, everything is in-memory. No database. This keeps it fast and
+simple, though it means the canvas resets when the server restarts."
+
+
+AUTHENTICATION FLOW
+--------------------------------------------------------------------------------
+
+"Authentication works like this:
+
+1. User signs in with Google on the frontend using Firebase Auth
+2. Firebase gives us an ID token
+3. Frontend opens WebSocket connection and sends the token
+4. Backend verifies the token with Firebase Admin SDK
+5. Once verified, the user is added to the connected clients map
+6. Only authenticated connections can perform canvas operations
+
+This ensures security - you can't just connect to the WebSocket and start
+manipulating the canvas. You must authenticate first."
+
+
+MESSAGE PROTOCOL
+--------------------------------------------------------------------------------
+
+"The message protocol is simple but powerful. Every message has a 'type' field
+and TypeScript interfaces define the structure. For example:
+
+- object.create: { type, object: { id, x, y, width, height, fill } }
+- object.update: { type, object: { id, x, y } }
+- presence.cursor: { type, userId, x, y }
+
+The backend routes messages by type to specific handlers. This makes it easy to
+add new message types - just add a new handler."
+
+
+REAL-TIME SYNCHRONIZATION
+--------------------------------------------------------------------------------
+
+"Here's what happens when User A drags an object:
+
+1. Canvas detects mouse move
+2. Frontend updates local state immediately (optimistic)
+3. Frontend sends 'object.update' message via WebSocket
+4. Backend receives it, updates canvas state
+5. Backend broadcasts to all other users
+6. User B receives message, updates their canvas
+7. Total latency: under 100 milliseconds
+
+For cursors, we throttle to 60 updates per second. Otherwise, you'd flood the
+WebSocket with hundreds of messages per second."
+
+
+DEPLOYMENT ARCHITECTURE
+--------------------------------------------------------------------------------
+
+"For deployment:
+
+- Frontend is on VERCEL - Auto-deploys from main branch, globally distributed CDN
+- Backend is on RENDER - Free tier, auto-deploys from main branch
+- Firebase handles auth - No custom auth server needed
+
+Everything is on free tiers, which is why the backend has cold starts after 15
+minutes of inactivity. For production, you'd upgrade to a paid tier for
+always-on hosting."
+
+
+KEY ARCHITECTURAL DECISIONS
+--------------------------------------------------------------------------------
+
+"Three key decisions made this possible in 24 hours:
+
+1. WebSocket over HTTP - Bidirectional, persistent connection. Perfect for
+   real-time. HTTP polling would be much more complex.
+
+2. In-Memory State - No database means no query latency, no connection pooling,
+   no ORM complexity. Just fast, simple state management.
+
+3. Firebase Auth - Didn't build a custom auth system. Used a proven solution
+   with Google OAuth built-in. Saved hours of development time.
+
+These pragmatic choices let me focus on the collaboration features rather than
+infrastructure."
+
+
+================================================================================
+
+TECHNOLOGY STACK (20 seconds)
+--------------------------------------------------------------------------------
+
+"Quick tech stack summary:
+
+Frontend: React, TypeScript, Vite, Firebase SDK
+Backend: Node.js, TypeScript, ws library for WebSocket, Firebase Admin SDK
+Deployment: Vercel for frontend, Render for backend
+Total code: About 4,300 lines of TypeScript across frontend and backend
+
+All generated with Cursor AI in about 24 hours of development time."
+
+
+================================================================================
+
+CLOSING (20 seconds)
+--------------------------------------------------------------------------------
+
+"So that's CollabCanvas - a real-time collaborative canvas built with a
+three-layer architecture: React frontend, WebSocket backend, and Firebase auth.
+
+The key to making this work was choosing the right patterns: WebSocket for
+real-time, in-memory state for speed, and Firebase for easy authentication.
+
+The repository and all documentation are on GitHub at
+github.com/sainathyai/CollabCanva, and the live demo is at the Vercel URL.
+
+Thanks for watching!"
+
+[Show: GitHub repo and live demo URL on screen]
+
+
+================================================================================
+
+TIMING BREAKDOWN
+--------------------------------------------------------------------------------
+
+Introduction:          30 seconds
+Live Demo:             60 seconds
+Architecture Overview: 150 seconds (2.5 minutes)
+Tech Stack:            20 seconds
+Closing:               20 seconds
+-------------------------------------------
+TOTAL:                 ~4.5 minutes
+
+
+TIPS FOR RECORDING
+--------------------------------------------------------------------------------
+
+• Have both browser windows visible side-by-side during demo
+• Use screen recording software (OBS, Loom, QuickTime)
+• Show cursor movement clearly - it's the most impressive feature
+• Have architecture diagram open in another tab to reference
+• Speak clearly but don't rush - 4-5 minutes is plenty of time
+• If you go over time, cut the "Key Architectural Decisions" section shorter
+
+
+VISUAL AIDS TO SHOW
+--------------------------------------------------------------------------------
+
+1. Live application (2 browsers side-by-side)
+2. Architecture diagram from docs/ARCHITECTURE_DETAILED.md
+3. GitHub repository page
+4. Optional: Code editor showing key files (Canvas.tsx, handlers.ts)
+
+
+ALTERNATIVE: SHORTER VERSION (3 MINUTES)
+--------------------------------------------------------------------------------
+
+If you need to condense to 3 minutes:
+• Keep Introduction and Live Demo (1.5 min)
+• Reduce Architecture to just "Frontend + Backend + Firebase" (1 min)
+• Quick tech stack mention (20 sec)
+• Short closing (20 sec)
+• Focus more on showing it work, less on explaining every detail
+

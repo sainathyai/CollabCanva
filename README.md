@@ -115,7 +115,7 @@ The backend is a Node.js WebSocket server that handles:
    ```bash
    npm run dev
    ```
-   
+
    You should see:
    ```
    Server running on port 8080
@@ -257,7 +257,7 @@ The backend is a Node.js WebSocket server that handles:
    ```bash
    # macOS/Linux
    curl -L https://fly.io/install.sh | sh
-   
+
    # Windows (PowerShell)
    powershell -Command "iwr https://fly.io/install.ps1 -useb | iex"
    ```
@@ -377,12 +377,55 @@ CollabCanvas/
 │   │   ├── auth/      # Token verification
 │   │   └── server.ts
 │   └── package.json
-├── docs/
-│   └── SMOKE_TEST.md  # Manual test scenarios
-├── PRD_MVP.md         # Product requirements
-├── Tasks.md           # Development tasks
-└── architecture.md    # System architecture diagram
+├── docs/              # All documentation
+│   ├── PRD_MVP.md     # Product requirements
+│   ├── Tasks.md       # Development task list
+│   ├── architecture.md # System architecture
+│   ├── DEPLOYMENT.md  # Deployment guide
+│   ├── SMOKE_TEST.md  # Test scenarios
+│   └── ... more docs
+├── memory-bank/       # AI memory system
+│   ├── projectbrief.md
+│   ├── systemPatterns.md
+│   └── ... context files
+└── README.md          # This file
 ```
+
+## Documentation
+
+Comprehensive documentation is organized in the `docs/` folder:
+
+### Product & Planning
+- **[AI_DEVELOPMENT_LOG.txt](docs/AI_DEVELOPMENT_LOG.txt)** - 🆕 AI-First Development Process & Learnings
+- **[PRD_MVP.md](docs/PRD_MVP.md)** - Product Requirements Document for MVP
+- **[Tasks.md](docs/Tasks.md)** - Development task list and PRs breakdown
+- **[Prompts.md](docs/Prompts.md)** - Development prompts and context
+
+### Architecture & Technical
+- **[ARCHITECTURE_DETAILED.md](docs/ARCHITECTURE_DETAILED.md)** - 🆕 Complete architecture with Mermaid diagrams
+- **[architecture.md](docs/architecture.md)** - System architecture overview (original)
+- **[DEPLOYMENT_SUMMARY.md](docs/DEPLOYMENT_SUMMARY.md)** - Complete deployment status and results
+
+### Setup Guides
+- **[DEPLOYMENT.md](docs/DEPLOYMENT.md)** - Detailed deployment guide (Vercel + Render)
+- **[DEPLOY_NOW.md](docs/DEPLOY_NOW.md)** - Quick deployment checklist
+- **[DEVELOPMENT.md](docs/DEVELOPMENT.md)** - Cross-platform development setup
+- **[FIREBASE_SETUP_GUIDE.md](docs/FIREBASE_SETUP_GUIDE.md)** - Firebase configuration
+- **[VERCEL_ENV_SETUP.md](docs/VERCEL_ENV_SETUP.md)** - Vercel environment variables
+
+### Testing & Security
+- **[SMOKE_TEST.md](docs/SMOKE_TEST.md)** - Manual testing scenarios
+- **[PR3_IMPLEMENTATION_SUMMARY.md](docs/PR3_IMPLEMENTATION_SUMMARY.md)** - WebSocket implementation details
+- **[SECURITY_FIX_WEBSOCKET_AUTH.md](docs/SECURITY_FIX_WEBSOCKET_AUTH.md)** - Security documentation
+
+### Memory Bank (AI Context)
+The `memory-bank/` folder contains structured documentation for AI sessions:
+- **projectbrief.md** - Core requirements and scope
+- **productContext.md** - Product vision and UX goals
+- **systemPatterns.md** - Architecture patterns and decisions
+- **techContext.md** - Technologies and setup
+- **activeContext.md** - Current work state
+- **progress.md** - Detailed completion status
 
 ## Contributing
 
