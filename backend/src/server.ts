@@ -2,9 +2,11 @@ import http from 'http'
 import { env } from './env.js'
 import { logger } from './utils/logger.js'
 import { healthHandler } from './http/health.js'
+import { metricsHandler } from './http/metrics.js'
 import { setupWebSocket } from './ws/index.js'
 import { initializeDatabase } from './db/dynamodb.js'
 import { loadFromDatabase } from './state/canvasState.js'
+import { startAutoSaveWorker, stopAutoSaveWorker } from './workers/autoSaveWorker.js'
 
 // Create HTTP server
 const server = http.createServer((req, res) => {
@@ -26,6 +28,11 @@ const server = http.createServer((req, res) => {
   // Route handlers
   if (req.url === '/health' && req.method === 'GET') {
     healthHandler(req, res)
+    return
+  }
+
+  if (req.url === '/metrics' && req.method === 'GET') {
+    metricsHandler(req, res)
     return
   }
 
@@ -59,6 +66,15 @@ async function initializeServer() {
     logger.warn('⚠️  Data will NOT persist across restarts')
   }
 
+  // Start auto-save worker for periodic database syncing
+  try {
+    startAutoSaveWorker()
+    logger.info('✅ Auto-save worker started (5 second interval)')
+  } catch (error) {
+    logger.error('⚠️  Auto-save worker failed to start:', error)
+    logger.warn('⚠️  Server will continue without auto-save')
+  }
+  
   // Start server regardless of DB status (graceful degradation)
   server.listen(env.PORT, () => {
     logger.info('🎨 CollabCanvas Backend Ready!')
@@ -79,6 +95,7 @@ initializeServer().catch(err => {
 // Graceful shutdown
 process.on('SIGTERM', () => {
   logger.info('SIGTERM received, closing server gracefully')
+  stopAutoSaveWorker()
   server.close(() => {
     logger.info('Server closed')
     process.exit(0)
@@ -87,6 +104,7 @@ process.on('SIGTERM', () => {
 
 process.on('SIGINT', () => {
   logger.info('SIGINT received, closing server gracefully')
+  stopAutoSaveWorker()
   server.close(() => {
     logger.info('Server closed')
     process.exit(0)

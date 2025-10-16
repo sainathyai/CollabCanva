@@ -2,6 +2,7 @@
 import { logger } from '../utils/logger.js'
 import type { CanvasObject } from '../ws/messageTypes.js'
 import * as objectService from '../services/objectService.js'
+import { markDirty } from './dirtyFlags.js'
 
 export type { CanvasObject }
 
@@ -14,7 +15,7 @@ logger.info('🔵 Canvas state initialized', { objectCount: canvasObjects.size }
 
 /**
  * Create a new canvas object
- * Uses dual-write: saves to memory (fast) and database (persistent)
+ * Saves to memory immediately, marks project dirty for batch save by auto-save worker
  */
 export function createObject(object: CanvasObject): CanvasObject {
   if (canvasObjects.has(object.id)) {
@@ -31,18 +32,16 @@ export function createObject(object: CanvasObject): CanvasObject {
     totalObjects: canvasObjects.size,
     stack: new Error().stack?.split('\n').slice(1, 4).join('\n')
   })
-
-  // Write to database asynchronously (don't block the response)
-  saveToDatabaseAsync(object).catch(err => {
-    logger.error('Failed to save object to database', { id: object.id, error: err })
-  })
-
+  
+  // Mark project as dirty - auto-save worker will handle DB write
+  markDirty(DEFAULT_PROJECT_ID)
+  
   return object
 }
 
 /**
  * Update an existing canvas object (last-write-wins)
- * Uses dual-write: updates memory (fast) and database (persistent)
+ * Updates memory immediately, marks project dirty for batch save by auto-save worker
  */
 export function updateObject(object: Partial<CanvasObject> & { id: string }): CanvasObject {
   const existing = canvasObjects.get(object.id)
@@ -65,12 +64,10 @@ export function updateObject(object: Partial<CanvasObject> & { id: string }): Ca
       updatedAt: new Date().toISOString(),
     } as CanvasObject
     canvasObjects.set(object.id, newObject)
-
-    // Save new object to database
-    saveToDatabaseAsync(newObject).catch(err => {
-      logger.error('Failed to save new object to database', { id: object.id, error: err })
-    })
-
+    
+    // Mark project as dirty
+    markDirty(DEFAULT_PROJECT_ID)
+    
     return newObject
   }
 
@@ -83,26 +80,25 @@ export function updateObject(object: Partial<CanvasObject> & { id: string }): Ca
   // Update memory first (fast response)
   canvasObjects.set(object.id, updated)
   logger.debug('Object updated', { id: object.id })
-
-  // Update database asynchronously
-  saveToDatabaseAsync(updated).catch(err => {
-    logger.error('Failed to update object in database', { id: object.id, error: err })
-  })
-
+  
+  // Mark project as dirty - auto-save worker will handle DB write
+  markDirty(DEFAULT_PROJECT_ID)
+  
   return updated
 }
 
 /**
  * Delete a canvas object
- * Uses dual-write: removes from memory (fast) and database (persistent)
+ * Removes from memory immediately, deletes from database asynchronously
  */
 export function deleteObject(id: string): boolean {
   // Delete from memory first (fast response)
   const deleted = canvasObjects.delete(id)
   if (deleted) {
     logger.debug('Object deleted', { id })
-
-    // Delete from database asynchronously
+    
+    // Delete from database asynchronously (immediate, not batched)
+    // Deletions are rare so we don't need to batch them
     objectService.deleteObject(DEFAULT_PROJECT_ID, id).catch(err => {
       logger.error('Failed to delete object from database', { id, error: err })
     })
@@ -147,32 +143,49 @@ export function getObjectCount(): number {
 }
 
 /**
- * Helper function to save a canvas object to database
- * Maps the WebSocket CanvasObject to database format
+ * Get all canvas objects for a specific project
+ * Used by auto-save worker to batch save all objects
+ * 
+ * @param projectId Project ID to get objects for
+ * @returns Array of canvas objects for the project
  */
-async function saveToDatabaseAsync(object: CanvasObject): Promise<void> {
-  try {
-    // Map WebSocket format to database format
-    const dbObject = {
-      objectId: object.id,
-      type: object.type,
-      x: object.x,
-      y: object.y,
-      width: object.width,
-      height: object.height,
-      rotation: object.rotation,
-      color: object.color,
-      text: object.text,
-      fontSize: object.fontSize,
-      fontFamily: object.fontFamily,
-      createdBy: object.createdBy
-    }
-
-    await objectService.saveObject(DEFAULT_PROJECT_ID, dbObject)
-  } catch (error) {
-    logger.error('Database save failed', { error })
-    // Don't throw - we don't want DB failures to break the user experience
+export function getAllObjectsForProject(projectId: string): Array<{
+  objectId: string
+  type: string
+  x: number
+  y: number
+  width?: number
+  height?: number
+  rotation?: number
+  color?: string
+  text?: string
+  fontSize?: number
+  fontFamily?: string
+  createdBy: string
+  zIndex?: number
+}> {
+  // For now, all objects belong to DEFAULT_PROJECT_ID
+  // In future PRs, we'll have per-project storage
+  if (projectId !== DEFAULT_PROJECT_ID) {
+    return []
   }
+  
+  // Map WebSocket format to database format
+  return Array.from(canvasObjects.values()).map(obj => ({
+    objectId: obj.id,
+    type: obj.type,
+    x: obj.x,
+    y: obj.y,
+    width: obj.width,
+    height: obj.height,
+    rotation: obj.rotation,
+    color: obj.color,
+    text: obj.text,
+    fontSize: obj.fontSize,
+    fontFamily: obj.fontFamily,
+    createdBy: obj.createdBy,
+    zIndex: obj.zIndex
+  }))
 }
 
 /**
