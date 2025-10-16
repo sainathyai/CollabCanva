@@ -17,6 +17,7 @@ interface TopToolbarProps {
   onToggleGrid: () => void
   isPanning: boolean
   onTogglePan: () => void
+  onFitAll: () => void
 }
 
 /**
@@ -38,7 +39,8 @@ const TopToolbar: FC<TopToolbarProps> = ({
   showGrid,
   onToggleGrid,
   isPanning,
-  onTogglePan
+  onTogglePan,
+  onFitAll
 }) => {
   const [randomCount, setRandomCount] = useState(5)
 
@@ -181,6 +183,21 @@ const TopToolbar: FC<TopToolbarProps> = ({
               </svg>
             </button>
             <span className="top-tool-label">Pan</span>
+          </div>
+
+          <div className="top-tool-item">
+            <button
+              className="top-tool-btn"
+              onClick={onFitAll}
+              title="Fit All Objects (F)"
+              disabled={objectCount === 0}
+            >
+              <svg width="35" height="35" viewBox="0 0 32 32">
+                <rect x="8" y="8" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" strokeDasharray="3 2" />
+                <path d="M4 4 L4 8 M4 4 L8 4 M28 4 L28 8 M28 4 L24 4 M4 28 L4 24 M4 28 L8 28 M28 28 L28 24 M28 28 L24 28" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+              </svg>
+            </button>
+            <span className="top-tool-label">Fit All</span>
           </div>
 
         </div>

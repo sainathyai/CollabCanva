@@ -263,6 +263,46 @@ function Canvas() {
     setPosition({ x: 0, y: 0 })
   }, [])
 
+  const handleFitAll = useCallback(() => {
+    if (objects.length === 0) return
+
+    // Calculate bounding box of all objects
+    let minX = Infinity
+    let minY = Infinity
+    let maxX = -Infinity
+    let maxY = -Infinity
+
+    objects.forEach(obj => {
+      const objMinX = obj.x - (obj.width || 0) / 2
+      const objMaxX = obj.x + (obj.width || 0) / 2
+      const objMinY = obj.y - (obj.height || 0) / 2
+      const objMaxY = obj.y + (obj.height || 0) / 2
+
+      minX = Math.min(minX, objMinX)
+      maxX = Math.max(maxX, objMaxX)
+      minY = Math.min(minY, objMinY)
+      maxY = Math.max(maxY, objMaxY)
+    })
+
+    const objectsWidth = maxX - minX
+    const objectsHeight = maxY - minY
+    const centerX = (minX + maxX) / 2
+    const centerY = (minY + maxY) / 2
+
+    // Calculate scale to fit all objects with padding
+    const padding = 50
+    const scaleX = (stageSize.width - padding * 2) / objectsWidth
+    const scaleY = (stageSize.height - padding * 2) / objectsHeight
+    const newScale = Math.min(scaleX, scaleY, 2) // Max zoom 2x
+
+    // Calculate position to center objects
+    const newX = stageSize.width / 2 - centerX * newScale
+    const newY = stageSize.height / 2 - centerY * newScale
+
+    setScale(newScale)
+    setPosition({ x: newX, y: newY })
+  }, [objects, stageSize])
+
   const handleCreateRandomObjects = useCallback((count: number) => {
     if (!user) {
       alert('You must be logged in to create objects')
@@ -867,6 +907,11 @@ function Canvas() {
         e.preventDefault()
         setShowGrid(prev => !prev)
       }
+      // F: fit all objects
+      else if (e.key === 'f' || e.key === 'F') {
+        e.preventDefault()
+        handleFitAll()
+      }
       // + or =: zoom in
       else if (e.key === '+' || e.key === '=') {
         e.preventDefault()
@@ -916,7 +961,7 @@ function Canvas() {
       window.removeEventListener('keydown', handleKeyDown)
       window.removeEventListener('keyup', handleKeyUp)
     }
-  }, [selectedIds, isAuthenticated, objects, handleCopy, handleCut, handlePaste, handleSelectAll, handleNudge, handleDeleteSelected, handleDuplicate, isPanning, handleZoomIn, handleZoomOut, handleZoomReset])
+  }, [selectedIds, isAuthenticated, objects, handleCopy, handleCut, handlePaste, handleSelectAll, handleNudge, handleDeleteSelected, handleDuplicate, isPanning, handleZoomIn, handleZoomOut, handleZoomReset, handleFitAll])
 
   return (
     <div className="canvas-page">
@@ -937,6 +982,7 @@ function Canvas() {
         onToggleGrid={() => setShowGrid(!showGrid)}
         isPanning={isPanning}
         onTogglePan={() => setIsPanning(!isPanning)}
+        onFitAll={handleFitAll}
       />
 
       <Toolbar

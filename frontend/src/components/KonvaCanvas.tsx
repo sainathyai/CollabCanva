@@ -1,5 +1,5 @@
-import { useRef, useEffect, useState } from 'react';
-import { Stage, Layer, Rect, Circle, Line, Text, RegularPolygon, Star, Arrow } from 'react-konva';
+import { useRef, useEffect, useState, useMemo } from 'react';
+import { Stage, Layer, Rect, Circle, Line, Text, RegularPolygon, Star, Arrow, Ellipse } from 'react-konva';
 import Konva from 'konva';
 import { CanvasObject } from '../types';
 
@@ -37,6 +37,9 @@ export function KonvaCanvas({
   const [isSelecting, setIsSelecting] = useState(false);
   const selectionStart = useRef<{ x: number; y: number } | null>(null);
   const transformersRef = useRef<Map<string, Konva.Transformer>>(new Map());
+  const [editingTextId, setEditingTextId] = useState<string | null>(null);
+  const [textareaValue, setTextareaValue] = useState('');
+  const [textareaPosition, setTextareaPosition] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
 
   // Create individual transformers for each selected shape
   useEffect(() => {
@@ -90,7 +93,8 @@ export function KonvaCanvas({
       const stage = stageRef.current;
       if (!stage) return;
 
-      const pos = stage.getPointerPosition();
+      // Use relative position to account for zoom/pan transformations
+      const pos = stage.getRelativePointerPosition();
       if (!pos) return;
 
       setIsSelecting(true);
@@ -127,7 +131,8 @@ export function KonvaCanvas({
     const stage = stageRef.current;
     if (!stage || !selectionStart.current) return;
 
-    const pos = stage.getPointerPosition();
+    // Use relative position to account for zoom/pan transformations
+    const pos = stage.getRelativePointerPosition();
     if (!pos) return;
 
     const x = Math.min(selectionStart.current.x, pos.x);
@@ -160,14 +165,24 @@ export function KonvaCanvas({
       const node = stage.findOne(`#${obj.id}`);
       if (!node) return;
 
+      // Get the node's bounding box in screen space
       const box = node.getClientRect();
 
-      // Check if shape intersects with selection rectangle
+      // Convert screen coordinates to canvas coordinates
+      // Screen to canvas: (screenX - position.x) / scale
+      const canvasBox = {
+        x: (box.x - position.x) / scale,
+        y: (box.y - position.y) / scale,
+        width: box.width / scale,
+        height: box.height / scale
+      };
+
+      // Check if shape intersects with selection rectangle (both in canvas space)
       if (
-        box.x < selectionRect.x + selectionRect.width &&
-        box.x + box.width > selectionRect.x &&
-        box.y < selectionRect.y + selectionRect.height &&
-        box.y + box.height > selectionRect.y
+        canvasBox.x < selectionRect.x + selectionRect.width &&
+        canvasBox.x + canvasBox.width > selectionRect.x &&
+        canvasBox.y < selectionRect.y + selectionRect.height &&
+        canvasBox.y + canvasBox.height > selectionRect.y
       ) {
         selected.add(obj.id);
       }
@@ -286,7 +301,8 @@ export function KonvaCanvas({
   };
 
   // Generate 50px grid with 5px subdivisions
-  const generateGridLines = () => {
+  // Memoize grid generation to prevent recalculation during object drag/transform
+  const gridLines = useMemo(() => {
     if (!showGrid) return null;
 
     const majorGridSize = 50; // Major: 50px squares
@@ -362,296 +378,368 @@ export function KonvaCanvas({
     }
 
     return lines;
-  };
+  }, [showGrid, position.x, position.y, scale, stageWidth, stageHeight]); // Only recalculate when grid params change, NOT when objects change
 
   return (
-    <Stage
-      ref={stageRef}
-      width={stageWidth}
-      height={stageHeight}
-      scaleX={scale}
-      scaleY={scale}
-      x={position.x}
-      y={position.y}
-      draggable={isPanning}
-      onDragEnd={handleStageDragEnd}
-      onMouseDown={handleMouseDown}
-      onMouseMove={handleMouseMove}
-      onMouseUp={handleMouseUp}
-      onTouchStart={handleMouseDown}
-      style={{ cursor: isPanning ? 'grab' : 'default' }}
-      // GPU Optimizations
-      pixelRatio={window.devicePixelRatio} // Enable retina/high-DPI support
-    >
-      {/* Grid Layer - Non-interactive, dynamically generated */}
-      {showGrid && (
-        <Layer listening={false}>
-          {generateGridLines()}
-        </Layer>
-      )}
-
-      {/* Objects Layer */}
-      <Layer ref={layerRef}>
-        {objects.map(obj => {
-          switch (obj.type) {
-            case 'rectangle':
-              return (
-                <Rect
-                  key={obj.id}
-                  id={obj.id}
-                  x={obj.x}
-                  y={obj.y}
-                  width={obj.width}
-                  height={obj.height}
-                  rotation={obj.rotation}
-                  fill={obj.color}
-                  draggable
-                  onDragStart={handleDragStart}
-                  onDragMove={handleDragMove}
-                  onDragEnd={handleDragEnd}
-                  onTransformEnd={handleTransformEnd}
-                  // GPU Performance optimizations
-                  perfectDrawEnabled={false} // Faster rendering
-                  shadowForStrokeEnabled={false} // Avoid expensive shadow calc
-                />
-              );
-
-            case 'circle':
-              return (
-                <Circle
-                  key={obj.id}
-                  id={obj.id}
-                  x={obj.x}
-                  y={obj.y}
-                  radius={obj.width / 2}
-                  rotation={obj.rotation}
-                  fill={obj.color}
-                  draggable
-                  onDragStart={handleDragStart}
-                  onDragMove={handleDragMove}
-                  onDragEnd={handleDragEnd}
-                  onTransformEnd={handleTransformEnd}
-                  // GPU Performance optimizations
-                  perfectDrawEnabled={false}
-                  shadowForStrokeEnabled={false}
-                />
-              );
-
-            case 'text':
-              return (
-                <Text
-                  key={obj.id}
-                  id={obj.id}
-                  x={obj.x}
-                  y={obj.y}
-                  text={obj.text || ''}
-                  fontSize={obj.fontSize || 16}
-                  fontFamily={obj.fontFamily || 'Arial'}
-                  fill={obj.color}
-                  rotation={obj.rotation}
-                  draggable
-                  onDragStart={handleDragStart}
-                  onDragMove={handleDragMove}
-                  onDragEnd={handleDragEnd}
-                  onTransformEnd={handleTransformEnd}
-                />
-              );
-
-            case 'line':
-              return (
-                <Line
-                  key={obj.id}
-                  id={obj.id}
-                  points={obj.points || [0, 0, 100, 100]}
-                  stroke={obj.color}
-                  strokeWidth={3}
-                  rotation={obj.rotation}
-                  draggable
-                  onDragStart={handleDragStart}
-                  onDragMove={handleDragMove}
-                  onDragEnd={handleDragEnd}
-                  onTransformEnd={handleTransformEnd}
-                />
-              );
-
-            case 'triangle':
-              return (
-                <RegularPolygon
-                  key={obj.id}
-                  id={obj.id}
-                  x={obj.x}
-                  y={obj.y}
-                  sides={3}
-                  radius={obj.width / 2}
-                  fill={obj.color}
-                  rotation={obj.rotation}
-                  draggable
-                  onDragStart={handleDragStart}
-                  onDragMove={handleDragMove}
-                  onDragEnd={handleDragEnd}
-                  onTransformEnd={handleTransformEnd}
-                />
-              );
-
-            case 'polygon':
-              return (
-                <RegularPolygon
-                  key={obj.id}
-                  id={obj.id}
-                  x={obj.x}
-                  y={obj.y}
-                  sides={6}
-                  radius={obj.width / 2}
-                  fill={obj.color}
-                  rotation={obj.rotation}
-                  draggable
-                  onDragStart={handleDragStart}
-                  onDragMove={handleDragMove}
-                  onDragEnd={handleDragEnd}
-                  onTransformEnd={handleTransformEnd}
-                />
-              );
-
-            case 'star':
-              return (
-                <Star
-                  key={obj.id}
-                  id={obj.id}
-                  x={obj.x}
-                  y={obj.y}
-                  numPoints={5}
-                  innerRadius={obj.width / 4}
-                  outerRadius={obj.width / 2}
-                  fill={obj.color}
-                  rotation={obj.rotation}
-                  draggable
-                  onDragStart={handleDragStart}
-                  onDragMove={handleDragMove}
-                  onDragEnd={handleDragEnd}
-                  onTransformEnd={handleTransformEnd}
-                />
-              );
-
-            case 'arrow':
-              return (
-                <Arrow
-                  key={obj.id}
-                  id={obj.id}
-                  points={[0, 0, obj.width, 0]}
-                  x={obj.x}
-                  y={obj.y}
-                  pointerLength={10}
-                  pointerWidth={10}
-                  fill={obj.color}
-                  stroke={obj.color}
-                  strokeWidth={3}
-                  rotation={obj.rotation}
-                  draggable
-                  onDragStart={handleDragStart}
-                  onDragMove={handleDragMove}
-                  onDragEnd={handleDragEnd}
-                  onTransformEnd={handleTransformEnd}
-                />
-              );
-
-            case 'ellipse':
-              return (
-                <Circle
-                  key={obj.id}
-                  id={obj.id}
-                  x={obj.x}
-                  y={obj.y}
-                  radiusX={obj.width / 2}
-                  radiusY={obj.height / 2}
-                  fill={obj.color}
-                  rotation={obj.rotation}
-                  draggable
-                  onDragStart={handleDragStart}
-                  onDragMove={handleDragMove}
-                  onDragEnd={handleDragEnd}
-                  onTransformEnd={handleTransformEnd}
-                />
-              );
-
-            case 'roundedRect':
-              return (
-                <Rect
-                  key={obj.id}
-                  id={obj.id}
-                  x={obj.x}
-                  y={obj.y}
-                  width={obj.width}
-                  height={obj.height}
-                  cornerRadius={10}
-                  rotation={obj.rotation}
-                  fill={obj.color}
-                  draggable
-                  onDragStart={handleDragStart}
-                  onDragMove={handleDragMove}
-                  onDragEnd={handleDragEnd}
-                  onTransformEnd={handleTransformEnd}
-                />
-              );
-
-            case 'diamond':
-              return (
-                <RegularPolygon
-                  key={obj.id}
-                  id={obj.id}
-                  x={obj.x}
-                  y={obj.y}
-                  sides={4}
-                  radius={obj.width / 2}
-                  fill={obj.color}
-                  rotation={obj.rotation + 45}
-                  draggable
-                  onDragStart={handleDragStart}
-                  onDragMove={handleDragMove}
-                  onDragEnd={handleDragEnd}
-                  onTransformEnd={handleTransformEnd}
-                />
-              );
-
-            case 'pentagon':
-              return (
-                <RegularPolygon
-                  key={obj.id}
-                  id={obj.id}
-                  x={obj.x}
-                  y={obj.y}
-                  sides={5}
-                  radius={obj.width / 2}
-                  fill={obj.color}
-                  rotation={obj.rotation}
-                  draggable
-                  onDragStart={handleDragStart}
-                  onDragMove={handleDragMove}
-                  onDragEnd={handleDragEnd}
-                  onTransformEnd={handleTransformEnd}
-                />
-              );
-
-            default:
-              return null;
-          }
-        })}
-
-        {/* Area selection rectangle */}
-        {selectionRect && (
-          <Rect
-            x={selectionRect.x}
-            y={selectionRect.y}
-            width={selectionRect.width}
-            height={selectionRect.height}
-            fill="rgba(0, 102, 255, 0.1)"
-            stroke="#0066FF"
-            strokeWidth={2}
-            dash={[5, 5]}
-            listening={false}
-          />
+    <>
+      <Stage
+        ref={stageRef}
+        width={stageWidth}
+        height={stageHeight}
+        scaleX={scale}
+        scaleY={scale}
+        x={position.x}
+        y={position.y}
+        draggable={isPanning}
+        onDragEnd={handleStageDragEnd}
+        onMouseDown={handleMouseDown}
+        onMouseMove={handleMouseMove}
+        onMouseUp={handleMouseUp}
+        onTouchStart={handleMouseDown}
+        style={{ cursor: isPanning ? 'grab' : 'default' }}
+        // GPU Optimizations
+        pixelRatio={window.devicePixelRatio} // Enable retina/high-DPI support
+      >
+        {/* Grid Layer - Non-interactive, memoized for performance */}
+        {showGrid && (
+          <Layer listening={false}>
+            {gridLines}
+          </Layer>
         )}
-      </Layer>
-    </Stage>
+
+        {/* Objects Layer */}
+        <Layer ref={layerRef}>
+          {objects.map(obj => {
+            switch (obj.type) {
+              case 'rectangle':
+                return (
+                  <Rect
+                    key={obj.id}
+                    id={obj.id}
+                    x={obj.x}
+                    y={obj.y}
+                    width={obj.width}
+                    height={obj.height}
+                    rotation={obj.rotation}
+                    fill={obj.color}
+                    draggable
+                    onDragStart={handleDragStart}
+                    onDragMove={handleDragMove}
+                    onDragEnd={handleDragEnd}
+                    onTransformEnd={handleTransformEnd}
+                    // GPU Performance optimizations
+                    perfectDrawEnabled={false} // Faster rendering
+                    shadowForStrokeEnabled={false} // Avoid expensive shadow calc
+                  />
+                );
+
+              case 'circle':
+                return (
+                  <Circle
+                    key={obj.id}
+                    id={obj.id}
+                    x={obj.x}
+                    y={obj.y}
+                    radius={obj.width / 2}
+                    rotation={obj.rotation}
+                    fill={obj.color}
+                    draggable
+                    onDragStart={handleDragStart}
+                    onDragMove={handleDragMove}
+                    onDragEnd={handleDragEnd}
+                    onTransformEnd={handleTransformEnd}
+                    // GPU Performance optimizations
+                    perfectDrawEnabled={false}
+                    shadowForStrokeEnabled={false}
+                  />
+                );
+
+              case 'text':
+                return (
+                  <Text
+                    key={obj.id}
+                    id={obj.id}
+                    x={obj.x}
+                    y={obj.y}
+                    text={obj.text || ''}
+                    fontSize={obj.fontSize || 16}
+                    fontFamily={obj.fontFamily || 'Arial'}
+                    fill={obj.color}
+                    rotation={obj.rotation}
+                    draggable
+                    onDragStart={handleDragStart}
+                    onDragMove={handleDragMove}
+                    onDragEnd={handleDragEnd}
+                    onTransformEnd={handleTransformEnd}
+                    onDblClick={() => {
+                      const stage = stageRef.current;
+                      if (!stage) return;
+
+                      // Get text position on screen
+                      const textNode = stage.findOne(`#${obj.id}`) as Konva.Text;
+                      if (!textNode) return;
+
+                      const textPosition = textNode.getAbsolutePosition();
+                      const stageBox = stage.container().getBoundingClientRect();
+
+                      setEditingTextId(obj.id);
+                      setTextareaValue(obj.text || '');
+                      setTextareaPosition({
+                        x: stageBox.left + textPosition.x * scale + position.x,
+                        y: stageBox.top + textPosition.y * scale + position.y
+                      });
+                    }}
+                  />
+                );
+
+              case 'line':
+                return (
+                  <Line
+                    key={obj.id}
+                    id={obj.id}
+                    points={obj.points || [0, 0, 100, 100]}
+                    stroke={obj.color}
+                    strokeWidth={3}
+                    rotation={obj.rotation}
+                    draggable
+                    onDragStart={handleDragStart}
+                    onDragMove={handleDragMove}
+                    onDragEnd={handleDragEnd}
+                    onTransformEnd={handleTransformEnd}
+                  />
+                );
+
+              case 'triangle':
+                return (
+                  <RegularPolygon
+                    key={obj.id}
+                    id={obj.id}
+                    x={obj.x}
+                    y={obj.y}
+                    sides={3}
+                    radius={obj.width / 2}
+                    fill={obj.color}
+                    rotation={obj.rotation}
+                    draggable
+                    onDragStart={handleDragStart}
+                    onDragMove={handleDragMove}
+                    onDragEnd={handleDragEnd}
+                    onTransformEnd={handleTransformEnd}
+                  />
+                );
+
+              case 'polygon':
+                return (
+                  <RegularPolygon
+                    key={obj.id}
+                    id={obj.id}
+                    x={obj.x}
+                    y={obj.y}
+                    sides={6}
+                    radius={obj.width / 2}
+                    fill={obj.color}
+                    rotation={obj.rotation}
+                    draggable
+                    onDragStart={handleDragStart}
+                    onDragMove={handleDragMove}
+                    onDragEnd={handleDragEnd}
+                    onTransformEnd={handleTransformEnd}
+                  />
+                );
+
+              case 'star':
+                return (
+                  <Star
+                    key={obj.id}
+                    id={obj.id}
+                    x={obj.x}
+                    y={obj.y}
+                    numPoints={5}
+                    innerRadius={obj.width / 4}
+                    outerRadius={obj.width / 2}
+                    fill={obj.color}
+                    rotation={obj.rotation}
+                    draggable
+                    onDragStart={handleDragStart}
+                    onDragMove={handleDragMove}
+                    onDragEnd={handleDragEnd}
+                    onTransformEnd={handleTransformEnd}
+                  />
+                );
+
+              case 'arrow':
+                return (
+                  <Arrow
+                    key={obj.id}
+                    id={obj.id}
+                    points={[0, 0, obj.width, 0]}
+                    x={obj.x}
+                    y={obj.y}
+                    pointerLength={10}
+                    pointerWidth={10}
+                    fill={obj.color}
+                    stroke={obj.color}
+                    strokeWidth={3}
+                    rotation={obj.rotation}
+                    draggable
+                    onDragStart={handleDragStart}
+                    onDragMove={handleDragMove}
+                    onDragEnd={handleDragEnd}
+                    onTransformEnd={handleTransformEnd}
+                  />
+                );
+
+              case 'ellipse':
+                return (
+                  <Ellipse
+                    key={obj.id}
+                    id={obj.id}
+                    x={obj.x}
+                    y={obj.y}
+                    radiusX={obj.width / 2}
+                    radiusY={obj.height / 2}
+                    fill={obj.color}
+                    rotation={obj.rotation}
+                    draggable
+                    onDragStart={handleDragStart}
+                    onDragMove={handleDragMove}
+                    onDragEnd={handleDragEnd}
+                    onTransformEnd={handleTransformEnd}
+                    // GPU Performance optimizations
+                    perfectDrawEnabled={false}
+                    shadowForStrokeEnabled={false}
+                  />
+                );
+
+              case 'roundedRect':
+                return (
+                  <Rect
+                    key={obj.id}
+                    id={obj.id}
+                    x={obj.x}
+                    y={obj.y}
+                    width={obj.width}
+                    height={obj.height}
+                    cornerRadius={10}
+                    rotation={obj.rotation}
+                    fill={obj.color}
+                    draggable
+                    onDragStart={handleDragStart}
+                    onDragMove={handleDragMove}
+                    onDragEnd={handleDragEnd}
+                    onTransformEnd={handleTransformEnd}
+                  />
+                );
+
+              case 'diamond':
+                return (
+                  <RegularPolygon
+                    key={obj.id}
+                    id={obj.id}
+                    x={obj.x}
+                    y={obj.y}
+                    sides={4}
+                    radius={obj.width / 2}
+                    fill={obj.color}
+                    rotation={obj.rotation + 45}
+                    draggable
+                    onDragStart={handleDragStart}
+                    onDragMove={handleDragMove}
+                    onDragEnd={handleDragEnd}
+                    onTransformEnd={handleTransformEnd}
+                  />
+                );
+
+              case 'pentagon':
+                return (
+                  <RegularPolygon
+                    key={obj.id}
+                    id={obj.id}
+                    x={obj.x}
+                    y={obj.y}
+                    sides={5}
+                    radius={obj.width / 2}
+                    fill={obj.color}
+                    rotation={obj.rotation}
+                    draggable
+                    onDragStart={handleDragStart}
+                    onDragMove={handleDragMove}
+                    onDragEnd={handleDragEnd}
+                    onTransformEnd={handleTransformEnd}
+                  />
+                );
+
+              default:
+                return null;
+            }
+          })}
+
+          {/* Area selection rectangle */}
+          {selectionRect && (
+            <Rect
+              x={selectionRect.x}
+              y={selectionRect.y}
+              width={selectionRect.width}
+              height={selectionRect.height}
+              fill="rgba(0, 102, 255, 0.1)"
+              stroke="#0066FF"
+              strokeWidth={2}
+              dash={[5, 5]}
+              listening={false}
+            />
+          )}
+        </Layer>
+      </Stage>
+
+      {/* Text editing textarea overlay */}
+      {editingTextId && (
+        <textarea
+          autoFocus
+          value={textareaValue}
+          onChange={(e) => setTextareaValue(e.target.value)}
+          onBlur={() => {
+            // Save the edited text
+            if (editingTextId) {
+              onTransform(editingTextId, {
+                text: textareaValue
+              });
+            }
+            setEditingTextId(null);
+          }}
+          onKeyDown={(e) => {
+            if (e.key === 'Escape') {
+              setEditingTextId(null);
+            } else if (e.key === 'Enter' && !e.shiftKey) {
+              e.preventDefault();
+              // Save and close
+              if (editingTextId) {
+                onTransform(editingTextId, {
+                  text: textareaValue
+                });
+              }
+              setEditingTextId(null);
+            }
+          }}
+          style={{
+            position: 'fixed',
+            left: `${textareaPosition.x}px`,
+            top: `${textareaPosition.y}px`,
+            fontSize: `${(objects.find(obj => obj.id === editingTextId)?.fontSize || 16) * scale}px`,
+            fontFamily: objects.find(obj => obj.id === editingTextId)?.fontFamily || 'Arial',
+            color: objects.find(obj => obj.id === editingTextId)?.color || '#000',
+            border: '2px solid #4A90E2',
+            borderRadius: '4px',
+            padding: '4px 8px',
+            background: 'white',
+            resize: 'both',
+            minWidth: '100px',
+            minHeight: '30px',
+            zIndex: 1000,
+            outline: 'none'
+          }}
+        />
+      )}
+    </>
   );
 }
 
