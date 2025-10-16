@@ -17,6 +17,7 @@
   --text-muted: #94A3B8;
   --border: #E2E8F0;
   --error: #DC2626;
+  --success: #10B981;
   --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
   --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
   --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
@@ -196,7 +197,13 @@ button:disabled {
   background-color: var(--background);
 }
 
+/* Toolbar - Fixed at top */
 .canvas-toolbar {
+  position: fixed;
+  top: 60px;
+  left: 0;
+  right: 0;
+  z-index: 10;
   background: var(--surface);
   border-bottom: 1px solid var(--border);
   padding: 1rem 2rem;
@@ -308,6 +315,29 @@ button:disabled {
 
 .toolbar-info {
   margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 1.5rem;
+  padding-left: 2rem;
+  border-left: 1px solid var(--border);
+}
+
+.toolbar-info span {
+  font-size: 0.875rem;
+  color: var(--text-secondary);
+}
+
+.status-connected {
+  color: var(--success);
+  font-weight: 500;
+}
+
+.status-disconnected {
+  color: var(--text-muted);
+}
+
+.text-muted {
+  color: var(--text-muted);
 }
 
 .canvas-container {

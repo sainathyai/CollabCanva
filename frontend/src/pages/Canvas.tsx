@@ -507,7 +507,7 @@ function Canvas() {
       <div
         ref={containerRef}
         className="canvas-container"
-        style={{ position: 'relative', width: '100%', height: 'calc(100vh - 60px)', overflow: 'hidden' }}
+        style={{ position: 'relative', width: '100%', height: 'calc(100vh - 130px)', overflow: 'hidden' }}
         onMouseMove={handleMouseMove}
         onWheel={handleWheel as any}
       >
