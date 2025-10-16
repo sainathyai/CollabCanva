@@ -14,6 +14,7 @@ interface KonvaCanvasProps {
   position: { x: number; y: number };
   isPanning: boolean;
   onPositionChange: (position: { x: number; y: number }) => void;
+  showGrid?: boolean;
 }
 
 export function KonvaCanvas({
@@ -26,7 +27,8 @@ export function KonvaCanvas({
   scale,
   position,
   isPanning,
-  onPositionChange
+  onPositionChange,
+  showGrid = true
 }: KonvaCanvasProps) {
   const stageRef = useRef<Konva.Stage>(null);
   const layerRef = useRef<Konva.Layer>(null);
@@ -283,6 +285,85 @@ export function KonvaCanvas({
     }
   };
 
+  // Generate 50px grid with 5px subdivisions
+  const generateGridLines = () => {
+    if (!showGrid) return null;
+
+    const majorGridSize = 50; // Major: 50px squares
+    const minorGridSize = 5; // Minor: 5px subdivisions (10 per major square)
+    const lines: JSX.Element[] = [];
+    
+    // Calculate visible area - align to major grid to ensure complete squares
+    const padding = majorGridSize * 2;
+    const viewStartX = -position.x / scale - padding;
+    const viewEndX = (stageWidth - position.x) / scale + padding;
+    const viewStartY = -position.y / scale - padding;
+    const viewEndY = (stageHeight - position.y) / scale + padding;
+    
+    // Align to major grid boundaries to ensure we draw complete squares
+    const startX = Math.floor(viewStartX / majorGridSize) * majorGridSize;
+    const endX = Math.ceil(viewEndX / majorGridSize) * majorGridSize;
+    const startY = Math.floor(viewStartY / majorGridSize) * majorGridSize;
+    const endY = Math.ceil(viewEndY / majorGridSize) * majorGridSize;
+
+    // Draw minor grid lines (5px subdivisions)
+    for (let x = startX; x <= endX; x += minorGridSize) {
+      // Use Math.abs to handle negative coordinates properly
+      if (Math.abs(x % majorGridSize) > 0.001) { // Skip major grid positions (with floating point tolerance)
+        lines.push(
+          <Line
+            key={`minor-v-${x}`}
+            points={[x, startY, x, endY]}
+            stroke="#DCDCDC"
+            strokeWidth={0.5 / scale}
+            listening={false}
+          />
+        );
+      }
+    }
+
+    for (let y = startY; y <= endY; y += minorGridSize) {
+      if (Math.abs(y % majorGridSize) > 0.001) { // Skip major grid positions (with floating point tolerance)
+        lines.push(
+          <Line
+            key={`minor-h-${y}`}
+            points={[startX, y, endX, y]}
+            stroke="#DCDCDC"
+            strokeWidth={0.5 / scale}
+            listening={false}
+          />
+        );
+      }
+    }
+
+    // Draw major grid lines (50px)
+    for (let x = startX; x <= endX; x += majorGridSize) {
+      lines.push(
+        <Line
+          key={`major-v-${x}`}
+          points={[x, startY, x, endY]}
+          stroke="#D0D0D0"
+          strokeWidth={1 / scale}
+          listening={false}
+        />
+      );
+    }
+
+    for (let y = startY; y <= endY; y += majorGridSize) {
+      lines.push(
+        <Line
+          key={`major-h-${y}`}
+          points={[startX, y, endX, y]}
+          stroke="#D0D0D0"
+          strokeWidth={1 / scale}
+          listening={false}
+        />
+      );
+    }
+
+    return lines;
+  };
+
   return (
     <Stage
       ref={stageRef}
@@ -300,6 +381,14 @@ export function KonvaCanvas({
       onTouchStart={handleMouseDown}
       style={{ cursor: isPanning ? 'grab' : 'default' }}
     >
+      {/* Grid Layer */}
+      {showGrid && (
+        <Layer listening={false}>
+          {generateGridLines()}
+        </Layer>
+      )}
+
+      {/* Objects Layer */}
       <Layer ref={layerRef}>
         {objects.map(obj => {
           switch (obj.type) {

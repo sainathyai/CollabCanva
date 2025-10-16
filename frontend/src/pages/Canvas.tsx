@@ -7,6 +7,8 @@ import { KonvaCanvas } from '../components/KonvaCanvas'
 import Toolbar from '../components/Toolbar'
 import TopToolbar from '../components/TopToolbar'
 import CursorOverlay from '../components/CursorOverlay'
+import { AIChat } from '../components/AIChat'
+import type { AIFunctionName, AIFunctionParams } from '../lib/ai-functions'
 
 // Helper function to generate user colors
 const getUserColor = (userId: string): string => {
@@ -35,6 +37,8 @@ function Canvas() {
   const [scale, setScale] = useState(1)
   const [position, setPosition] = useState({ x: 0, y: 0 })
   const [isPanning, setIsPanning] = useState(false)
+  const [isAIChatOpen, setIsAIChatOpen] = useState(false)
+  const [showGrid, setShowGrid] = useState(true)
 
   const containerRef = useRef<HTMLDivElement>(null)
   const user = getCurrentUser()
@@ -488,6 +492,328 @@ function Canvas() {
     }
   }, [scale, position])
 
+  // AI Function Execution Handler
+  const executeAIFunction = useCallback((functionName: AIFunctionName, parameters: AIFunctionParams) => {
+    if (!user || !isAuthenticated) {
+      console.error('Cannot execute AI function: user not authenticated');
+      return;
+    }
+
+    console.log('Executing AI function:', functionName, parameters);
+
+    try {
+      switch (functionName) {
+        case 'generate_random_objects': {
+          const { count } = parameters as any;
+          const MAX_PER_BATCH = 100;
+
+          if (count <= MAX_PER_BATCH) {
+            // Single batch
+            handleCreateRandomObjects(count);
+            console.log(`Generated ${count} random objects`);
+          } else {
+            // Multiple batches with iteration
+            const batches = Math.ceil(count / MAX_PER_BATCH);
+            let remaining = count;
+
+            console.log(`Generating ${count} objects in ${batches} batches...`);
+
+            for (let i = 0; i < batches; i++) {
+              const batchSize = Math.min(remaining, MAX_PER_BATCH);
+
+              // Use setTimeout to batch asynchronously and give visual feedback
+              setTimeout(() => {
+                handleCreateRandomObjects(batchSize);
+                console.log(`Batch ${i + 1}/${batches}: Generated ${batchSize} objects`);
+              }, i * 300); // 300ms delay between batches
+
+              remaining -= batchSize;
+            }
+
+            console.log(`Scheduled ${count} objects across ${batches} batches`);
+          }
+          break;
+        }
+
+        case 'create_shape': {
+          const { type, count = 1, color, text, width, height } = parameters as any;
+          const newObjects: CanvasObject[] = [];
+
+          for (let i = 0; i < count; i++) {
+            const newObject: CanvasObject = {
+              id: crypto.randomUUID(),
+              type,
+              x: Math.random() * (stageSize.width - 200) + 100,
+              y: Math.random() * (stageSize.height - 200) + 100,
+              width: width || (type === 'line' ? 0 : type === 'text' ? 200 : 150),
+              height: height || (type === 'line' ? 0 : type === 'text' ? 50 : 100),
+              rotation: 0,
+              color: color || getRandomColor(),
+              zIndex: objects.length + i,
+              text: type === 'text' ? (text || 'New Text') : undefined,
+              fontSize: type === 'text' ? 16 : undefined,
+              points: type === 'line' ? [0, 0, 100, 0] : undefined,
+              createdBy: user.uid,
+              createdAt: new Date().toISOString()
+            };
+            newObjects.push(newObject);
+            wsClient.createObject(newObject);
+          }
+          console.log(`Created ${count} ${type}(s)`);
+          break;
+        }
+
+        case 'modify_color': {
+          const { selector, color } = parameters as any;
+          let targetObjects: CanvasObject[] = [];
+
+          if (selector === 'all') {
+            targetObjects = objects;
+          } else if (selector === 'selected') {
+            targetObjects = objects.filter(obj => selectedIds.has(obj.id));
+          } else {
+            targetObjects = objects.filter(obj => obj.type === selector);
+          }
+
+          targetObjects.forEach(obj => {
+            wsClient.updateObject({
+              id: obj.id,
+              color,
+              updatedAt: new Date().toISOString()
+            });
+          });
+          console.log(`Changed color of ${targetObjects.length} object(s) to ${color}`);
+          break;
+        }
+
+        case 'move_objects': {
+          const { selector, dx, dy } = parameters as any;
+          let targetObjects: CanvasObject[] = [];
+
+          if (selector === 'all') {
+            targetObjects = objects;
+          } else if (selector === 'selected') {
+            targetObjects = objects.filter(obj => selectedIds.has(obj.id));
+          } else {
+            targetObjects = objects.filter(obj => obj.type === selector);
+          }
+
+          targetObjects.forEach(obj => {
+            wsClient.updateObject({
+              id: obj.id,
+              x: obj.x + dx,
+              y: obj.y + dy,
+              updatedAt: new Date().toISOString()
+            });
+          });
+          console.log(`Moved ${targetObjects.length} object(s) by (${dx}, ${dy})`);
+          break;
+        }
+
+        case 'resize_objects': {
+          const { selector, scale: scaleValue } = parameters as any;
+          let targetObjects: CanvasObject[] = [];
+
+          if (selector === 'all') {
+            targetObjects = objects;
+          } else if (selector === 'selected') {
+            targetObjects = objects.filter(obj => selectedIds.has(obj.id));
+          } else {
+            targetObjects = objects.filter(obj => obj.type === selector);
+          }
+
+          targetObjects.forEach(obj => {
+            wsClient.updateObject({
+              id: obj.id,
+              width: Math.max(obj.width * scaleValue, 10),
+              height: Math.max(obj.height * scaleValue, 10),
+              updatedAt: new Date().toISOString()
+            });
+          });
+          console.log(`Resized ${targetObjects.length} object(s) by ${scaleValue}x`);
+          break;
+        }
+
+        case 'rotate_objects': {
+          const { selector, degrees } = parameters as any;
+          let targetObjects: CanvasObject[] = [];
+
+          if (selector === 'all') {
+            targetObjects = objects;
+          } else if (selector === 'selected') {
+            targetObjects = objects.filter(obj => selectedIds.has(obj.id));
+          } else {
+            targetObjects = objects.filter(obj => obj.type === selector);
+          }
+
+          targetObjects.forEach(obj => {
+            wsClient.updateObject({
+              id: obj.id,
+              rotation: (obj.rotation || 0) + degrees,
+              updatedAt: new Date().toISOString()
+            });
+          });
+          console.log(`Rotated ${targetObjects.length} object(s) by ${degrees} degrees`);
+          break;
+        }
+
+        case 'delete_objects': {
+          const { selector } = parameters as any;
+          let targetObjects: CanvasObject[] = [];
+
+          if (selector === 'all') {
+            targetObjects = objects;
+          } else if (selector === 'selected') {
+            targetObjects = objects.filter(obj => selectedIds.has(obj.id));
+          } else {
+            targetObjects = objects.filter(obj => obj.type === selector);
+          }
+
+          targetObjects.forEach(obj => {
+            wsClient.deleteObject(obj.id);
+          });
+          setSelectedIds(new Set());
+          console.log(`Deleted ${targetObjects.length} object(s)`);
+          break;
+        }
+
+        case 'arrange_objects': {
+          const { selector, arrangement, spacing = 20 } = parameters as any;
+          let targetObjects: CanvasObject[] = [];
+
+          if (selector === 'all') {
+            targetObjects = [...objects];
+          } else {
+            targetObjects = objects.filter(obj => selectedIds.has(obj.id));
+          }
+
+          if (targetObjects.length === 0) return;
+
+          // Calculate center point
+          const centerX = stageSize.width / 2;
+          const centerY = stageSize.height / 2;
+
+          switch (arrangement) {
+            case 'grid': {
+              const cols = Math.ceil(Math.sqrt(targetObjects.length));
+              targetObjects.forEach((obj, index) => {
+                const row = Math.floor(index / cols);
+                const col = index % cols;
+                wsClient.updateObject({
+                  id: obj.id,
+                  x: 100 + col * (obj.width + spacing),
+                  y: 100 + row * (obj.height + spacing),
+                  updatedAt: new Date().toISOString()
+                });
+              });
+              break;
+            }
+            case 'circle': {
+              const radius = 150;
+              targetObjects.forEach((obj, index) => {
+                const angle = (2 * Math.PI * index) / targetObjects.length;
+                wsClient.updateObject({
+                  id: obj.id,
+                  x: centerX + radius * Math.cos(angle),
+                  y: centerY + radius * Math.sin(angle),
+                  updatedAt: new Date().toISOString()
+                });
+              });
+              break;
+            }
+            case 'line-horizontal': {
+              targetObjects.forEach((obj, index) => {
+                wsClient.updateObject({
+                  id: obj.id,
+                  x: 100 + index * (obj.width + spacing),
+                  y: centerY,
+                  updatedAt: new Date().toISOString()
+                });
+              });
+              break;
+            }
+            case 'line-vertical': {
+              targetObjects.forEach((obj, index) => {
+                wsClient.updateObject({
+                  id: obj.id,
+                  x: centerX,
+                  y: 100 + index * (obj.height + spacing),
+                  updatedAt: new Date().toISOString()
+                });
+              });
+              break;
+            }
+            case 'align-left': {
+              const leftmost = Math.min(...targetObjects.map(o => o.x));
+              targetObjects.forEach(obj => {
+                wsClient.updateObject({
+                  id: obj.id,
+                  x: leftmost,
+                  updatedAt: new Date().toISOString()
+                });
+              });
+              break;
+            }
+            case 'align-center': {
+              targetObjects.forEach(obj => {
+                wsClient.updateObject({
+                  id: obj.id,
+                  x: centerX - obj.width / 2,
+                  updatedAt: new Date().toISOString()
+                });
+              });
+              break;
+            }
+            case 'align-right': {
+              const rightmost = Math.max(...targetObjects.map(o => o.x + o.width));
+              targetObjects.forEach(obj => {
+                wsClient.updateObject({
+                  id: obj.id,
+                  x: rightmost - obj.width,
+                  updatedAt: new Date().toISOString()
+                });
+              });
+              break;
+            }
+          }
+          console.log(`Arranged ${targetObjects.length} object(s) in ${arrangement}`);
+          break;
+        }
+
+        case 'duplicate_objects': {
+          const { selector, count = 1, offset = 20 } = parameters as any;
+          let targetObjects: CanvasObject[] = [];
+
+          if (selector === 'all') {
+            targetObjects = objects;
+          } else {
+            targetObjects = objects.filter(obj => selectedIds.has(obj.id));
+          }
+
+          targetObjects.forEach(obj => {
+            for (let i = 0; i < count; i++) {
+              const duplicate: CanvasObject = {
+                ...obj,
+                id: crypto.randomUUID(),
+                x: obj.x + (offset * (i + 1)),
+                y: obj.y + (offset * (i + 1)),
+                createdAt: new Date().toISOString()
+              };
+              wsClient.createObject(duplicate);
+            }
+          });
+          console.log(`Duplicated ${targetObjects.length} object(s) ${count} time(s)`);
+          break;
+        }
+
+        default:
+          console.error('Unknown AI function:', functionName);
+      }
+    } catch (error) {
+      console.error('Error executing AI function:', error);
+    }
+  }, [objects, selectedIds, user, isAuthenticated, stageSize, handleCreateRandomObjects]);
+
   // Keyboard shortcuts
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -535,6 +861,11 @@ function Canvas() {
       // Escape: deselect all
       else if (e.key === 'Escape') {
         setSelectedIds(new Set())
+      }
+      // G: toggle grid
+      else if (e.key === 'g' || e.key === 'G') {
+        e.preventDefault()
+        setShowGrid(prev => !prev)
       }
       // + or =: zoom in
       else if (e.key === '+' || e.key === '=') {
@@ -602,6 +933,10 @@ function Canvas() {
         onZoomReset={handleZoomReset}
         onPanReset={handlePanReset}
         onCreateRandomObjects={handleCreateRandomObjects}
+        showGrid={showGrid}
+        onToggleGrid={() => setShowGrid(!showGrid)}
+        isPanning={isPanning}
+        onTogglePan={() => setIsPanning(!isPanning)}
       />
 
       <Toolbar
@@ -626,33 +961,30 @@ function Canvas() {
           position={position}
           isPanning={isPanning}
           onPositionChange={setPosition}
+          showGrid={showGrid}
         />
         <CursorOverlay
           presences={Array.from(presences.values())}
           currentUserId={user?.uid}
           canvasOffset={canvasOffset}
         />
+
+        {/* AI Chat Component */}
+        <AIChat
+          context={{
+            objects,
+            selectedIds
+          }}
+          onExecuteFunction={executeAIFunction}
+          isOpen={isAIChatOpen}
+          onToggle={() => setIsAIChatOpen(!isAIChatOpen)}
+        />
+
         {!isConnected && (
           <div style={{ position: 'absolute', top: 10, right: 10, padding: '8px 16px', background: '#fbbf24', borderRadius: '4px' }}>
             Connecting...
           </div>
         )}
-
-        {/* Zoom indicator */}
-        <div style={{
-          position: 'absolute',
-          bottom: 10,
-          right: 10,
-          padding: '6px 12px',
-          background: 'rgba(0, 0, 0, 0.7)',
-          color: 'white',
-          borderRadius: '4px',
-          fontSize: '12px',
-          fontWeight: 'bold',
-          userSelect: 'none'
-        }}>
-          {Math.round(scale * 100)}%
-        </div>
 
         {/* Panning hint */}
         {isPanning && (

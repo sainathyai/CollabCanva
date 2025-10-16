@@ -13,6 +13,10 @@ interface TopToolbarProps {
   onZoomReset: () => void
   onPanReset: () => void
   onCreateRandomObjects: (count: number) => void
+  showGrid: boolean
+  onToggleGrid: () => void
+  isPanning: boolean
+  onTogglePan: () => void
 }
 
 /**
@@ -29,8 +33,12 @@ const TopToolbar: FC<TopToolbarProps> = ({
   onZoomIn,
   onZoomOut,
   onZoomReset,
-  onPanReset,
-  onCreateRandomObjects
+  onPanReset: _onPanReset,
+  onCreateRandomObjects,
+  showGrid,
+  onToggleGrid,
+  isPanning,
+  onTogglePan
 }) => {
   const [randomCount, setRandomCount] = useState(5)
 
@@ -144,6 +152,37 @@ const TopToolbar: FC<TopToolbarProps> = ({
             <span className="top-tool-label">Home</span>
           </div>
 
+          <div className="top-tool-item">
+            <button
+              className={`top-tool-btn ${showGrid ? 'active' : ''}`}
+              onClick={onToggleGrid}
+              title="Toggle Grid (G)"
+            >
+              <svg width="35" height="35" viewBox="0 0 32 32">
+                <rect x="8" y="8" width="7" height="7" fill="none" stroke="currentColor" strokeWidth="2" />
+                <rect x="17" y="8" width="7" height="7" fill="none" stroke="currentColor" strokeWidth="2" />
+                <rect x="8" y="17" width="7" height="7" fill="none" stroke="currentColor" strokeWidth="2" />
+                <rect x="17" y="17" width="7" height="7" fill="none" stroke="currentColor" strokeWidth="2" />
+              </svg>
+            </button>
+            <span className="top-tool-label">Grid</span>
+          </div>
+
+          <div className="top-tool-item">
+            <button
+              className={`top-tool-btn ${isPanning ? 'active' : ''}`}
+              onClick={onTogglePan}
+              title="Pan Mode (Space)"
+            >
+              <svg width="35" height="35" viewBox="0 0 32 32">
+                <path d="M16 8 L16 18 M16 18 L20 14 M16 18 L12 14" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                <circle cx="16" cy="22" r="2" fill="currentColor" />
+                <path d="M10 8 L10 15 M22 8 L22 15" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+              </svg>
+            </button>
+            <span className="top-tool-label">Pan</span>
+          </div>
+
         </div>
       </div>
 
@@ -173,16 +212,16 @@ const TopToolbar: FC<TopToolbarProps> = ({
 
       {/* Right Section - Canvas Info */}
       <div className="top-toolbar-section top-toolbar-status">
-        <div className="status-info">
-          <div className="status-info-box">{objectCount}</div>
-          <span className="status-info-label">Objects</span>
-        </div>
-        {selectedCount > 0 && (
-          <div className="status-info">
-            <div className="status-info-box">{selectedCount}</div>
-            <span className="status-info-label">Selected</span>
+        <div className="status-info-stacked">
+          <div className="status-info-row">
+            <span className="status-info-label-inline">Objects:</span>
+            <span className="status-info-value">{objectCount}</span>
           </div>
-        )}
+          <div className="status-info-row">
+            <span className="status-info-label-inline">Selected:</span>
+            <span className="status-info-value">{selectedCount}</span>
+          </div>
+        </div>
       </div>
     </div>
   )
