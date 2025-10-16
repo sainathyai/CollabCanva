@@ -69,7 +69,7 @@ export function KonvaCanvas({
       }
     });
 
-    layer.batchDraw();
+    layer.batchDraw(); // Use batchDraw for better performance
 
     return () => {
       transformersRef.current.forEach(tr => tr.destroy());
@@ -292,14 +292,14 @@ export function KonvaCanvas({
     const majorGridSize = 50; // Major: 50px squares
     const minorGridSize = 5; // Minor: 5px subdivisions (10 per major square)
     const lines: JSX.Element[] = [];
-    
+
     // Calculate visible area - align to major grid to ensure complete squares
     const padding = majorGridSize * 2;
     const viewStartX = -position.x / scale - padding;
     const viewEndX = (stageWidth - position.x) / scale + padding;
     const viewStartY = -position.y / scale - padding;
     const viewEndY = (stageHeight - position.y) / scale + padding;
-    
+
     // Align to major grid boundaries to ensure we draw complete squares
     const startX = Math.floor(viewStartX / majorGridSize) * majorGridSize;
     const endX = Math.ceil(viewEndX / majorGridSize) * majorGridSize;
@@ -380,8 +380,10 @@ export function KonvaCanvas({
       onMouseUp={handleMouseUp}
       onTouchStart={handleMouseDown}
       style={{ cursor: isPanning ? 'grab' : 'default' }}
+      // GPU Optimizations
+      pixelRatio={window.devicePixelRatio} // Enable retina/high-DPI support
     >
-      {/* Grid Layer */}
+      {/* Grid Layer - Non-interactive, dynamically generated */}
       {showGrid && (
         <Layer listening={false}>
           {generateGridLines()}
@@ -408,6 +410,9 @@ export function KonvaCanvas({
                   onDragMove={handleDragMove}
                   onDragEnd={handleDragEnd}
                   onTransformEnd={handleTransformEnd}
+                  // GPU Performance optimizations
+                  perfectDrawEnabled={false} // Faster rendering
+                  shadowForStrokeEnabled={false} // Avoid expensive shadow calc
                 />
               );
 
@@ -426,6 +431,9 @@ export function KonvaCanvas({
                   onDragMove={handleDragMove}
                   onDragEnd={handleDragEnd}
                   onTransformEnd={handleTransformEnd}
+                  // GPU Performance optimizations
+                  perfectDrawEnabled={false}
+                  shadowForStrokeEnabled={false}
                 />
               );
 
