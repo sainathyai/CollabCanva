@@ -53,10 +53,11 @@ CollabCanvas is a learning project demonstrating real-time collaborative editing
 
 ### Design Decisions
 - **Single Canvas**: Simplified scope - everyone shares one canvas (no rooms/channels)
-- **Rectangles Only**: Focus on synchronization mechanics, not drawing features
-- **Minimal UI**: Clean interface - toolbar, canvas, header with user name
+- **Multiple Shapes**: Started with rectangles (MVP), expanded to 12+ shapes (PR10)
+- **Minimal UI**: Clean interface - enhanced toolbar, Konva canvas, header with user name
 - **Color-Coded Cursors**: Each user gets a unique color for easy identification
 - **In-Memory State**: Fast and simple - no database overhead for MVP
+- **Professional Canvas**: Upgraded to Konva for better interactions (PR10)
 
 ### Non-Goals (Intentional Limitations)
 - **Not Persistent**: Canvas resets when last user leaves (acceptable for MVP)

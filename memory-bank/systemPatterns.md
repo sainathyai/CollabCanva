@@ -102,12 +102,25 @@ export const wsClient = new WebSocketClient()
 ```typescript
 // Canvas.tsx - Local state with WebSocket sync
 const [objects, setObjects] = useState<CanvasObject[]>([])
+const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
 const [presences, setPresences] = useState<Map<string, Presence>>(new Map())
 
 // State updated from WebSocket messages
 // Changes published to WebSocket
 ```
 **Pattern**: Optimistic UI updates with eventual consistency
+
+#### 4. Konva Rendering (Added in PR10)
+```typescript
+// KonvaCanvas.tsx - Konva Stage with transformers
+<Stage>
+  <Layer>
+    {objects.map(obj => renderShape(obj))}
+    {/* Individual transformers for each selected shape */}
+  </Layer>
+</Stage>
+```
+**Pattern**: Declarative rendering with Konva's virtual canvas nodes
 
 ### Backend Patterns
 
@@ -221,7 +234,8 @@ App.tsx
     ├── Login.tsx (public route)
     └── Canvas.tsx (protected route)
         ├── Header.tsx (display name, logout)
-        ├── Toolbar.tsx (Add Rectangle button)
+        ├── Toolbar.tsx (12+ shape buttons, color picker, edit tools)
+        ├── KonvaCanvas.tsx (Konva Stage/Layer with transformers) [NEW in PR10]
         └── CursorOverlay.tsx (other users' cursors)
 ```
 

@@ -5,6 +5,7 @@ import type { CanvasObject, Presence } from '../types'
 import { getRandomColor } from '../lib/canvas'
 import { KonvaCanvas } from '../components/KonvaCanvas'
 import Toolbar from '../components/Toolbar'
+import TopToolbar from '../components/TopToolbar'
 import CursorOverlay from '../components/CursorOverlay'
 
 // Helper function to generate user colors
@@ -19,6 +20,13 @@ function Canvas() {
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
   const [isConnected, setIsConnected] = useState(false)
   const [isAuthenticated, setIsAuthenticated] = useState(false)
+
+  // Update global connection state for Header
+  useEffect(() => {
+    if ((window as any).updateConnectionState) {
+      (window as any).updateConnectionState({ isConnected, isAuthenticated })
+    }
+  }, [isConnected, isAuthenticated])
   const [, setHasReceivedInitialState] = useState(false)
   const [presences, setPresences] = useState<Map<string, Presence>>(new Map())
   const [canvasOffset, setCanvasOffset] = useState({ left: 0, top: 0 })
@@ -45,10 +53,10 @@ function Canvas() {
         if (user) {
           try {
             const token = await user.getIdToken()
-            console.log('Sending authentication...', user.displayName)
+            console.log('🔑 Sending authentication...', user.displayName || user.email)
             wsClient.authenticate(token, user.displayName || undefined)
           } catch (error) {
-            console.error('Failed to authenticate:', error)
+            console.error('❌ Failed to authenticate:', error)
           }
         }
       } catch (error) {
@@ -73,7 +81,7 @@ function Canvas() {
 
   // Handle incoming WebSocket messages
   const handleWebSocketMessage = (message: WSMessage) => {
-    console.log('Received message:', message.type)
+    console.log('📨 Received message:', message.type)
 
     switch (message.type) {
       case MessageType.INITIAL_STATE:
@@ -127,7 +135,7 @@ function Canvas() {
         break
 
       case MessageType.AUTH_SUCCESS:
-        console.log('Authenticated successfully')
+        console.log('✅ Authenticated successfully - Connection established')
         setIsAuthenticated(true)
         break
 
@@ -232,6 +240,69 @@ function Canvas() {
 
   // Wrapper for backward compatibility
   const handleAddRectangle = () => handleAddShape('rectangle')
+
+  // Zoom controls
+  const handleZoomIn = useCallback(() => {
+    setScale(prev => Math.min(5, prev * 1.2))
+  }, [])
+
+  const handleZoomOut = useCallback(() => {
+    setScale(prev => Math.max(0.1, prev / 1.2))
+  }, [])
+
+  const handleZoomReset = useCallback(() => {
+    setScale(1)
+    setPosition({ x: 0, y: 0 })
+  }, [])
+
+  const handlePanReset = useCallback(() => {
+    setPosition({ x: 0, y: 0 })
+  }, [])
+
+  const handleCreateRandomObjects = useCallback((count: number) => {
+    if (!user) {
+      alert('You must be logged in to create objects')
+      return
+    }
+
+    if (!isAuthenticated) {
+      alert('Please wait... authenticating with server')
+      return
+    }
+
+    const shapes: CanvasObject['type'][] = ['rectangle', 'circle', 'triangle', 'star', 'ellipse']
+    const colors = ['#FF6B6B', '#4ECDC4', '#45B7D1', '#FFA07A', '#98D8C8', '#F7DC6F', '#BB8FCE', '#85C1E2']
+
+    for (let i = 0; i < count; i++) {
+      const shape = shapes[Math.floor(Math.random() * shapes.length)]
+      const color = colors[Math.floor(Math.random() * colors.length)]
+      const x = Math.random() * (stageSize.width - 300) + 100
+      const y = Math.random() * (stageSize.height - 300) + 100
+      const width = Math.random() * 100 + 60
+      const height = Math.random() * 100 + 60
+
+      const newObject: CanvasObject = {
+        id: crypto.randomUUID(),
+        type: shape,
+        x,
+        y,
+        width,
+        height,
+        color,
+        rotation: 0,
+        zIndex: objects.length + i,
+        createdBy: user.uid,
+        createdAt: new Date().toISOString()
+      }
+
+      // Send to server
+      wsClient.send({
+        type: MessageType.OBJECT_CREATE,
+        object: newObject,
+        timestamp: new Date().toISOString()
+      })
+    }
+  }, [user, isAuthenticated, stageSize, objects.length])
 
   // Handle object selection from Konva
   const handleSelect = (ids: Set<string>) => {
@@ -378,31 +449,43 @@ function Canvas() {
     })
   }, [selectedIds, objects])
 
-  // Handle mouse wheel zoom
-  const handleWheel = useCallback((e: WheelEvent) => {
-    e.preventDefault()
+  // Handle mouse wheel zoom - using useEffect to attach with { passive: false }
+  useEffect(() => {
+    const container = containerRef.current
+    if (!container) return
 
-    const scaleBy = 1.05
-    const stage = e.currentTarget as HTMLElement
-    const oldScale = scale
+    const handleWheel = (e: WheelEvent) => {
+      e.preventDefault()
 
-    const pointer = {
-      x: (e.clientX - stage.getBoundingClientRect().left) / oldScale,
-      y: (e.clientY - stage.getBoundingClientRect().top) / oldScale
+      const scaleBy = 1.05
+      const oldScale = scale
+
+      const containerRect = container.getBoundingClientRect()
+      const pointer = {
+        x: (e.clientX - containerRect.left) / oldScale,
+        y: (e.clientY - containerRect.top) / oldScale
+      }
+
+      const newScale = e.deltaY < 0 ? oldScale * scaleBy : oldScale / scaleBy
+
+      // Limit zoom between 0.1x and 5x
+      const clampedScale = Math.max(0.1, Math.min(5, newScale))
+
+      setScale(clampedScale)
+
+      // Adjust position to zoom towards mouse pointer
+      setPosition({
+        x: (pointer.x - (pointer.x - position.x) * (clampedScale / oldScale)),
+        y: (pointer.y - (pointer.y - position.y) * (clampedScale / oldScale))
+      })
     }
 
-    const newScale = e.deltaY < 0 ? oldScale * scaleBy : oldScale / scaleBy
+    // Add event listener with { passive: false } to allow preventDefault
+    container.addEventListener('wheel', handleWheel, { passive: false })
 
-    // Limit zoom between 0.1x and 5x
-    const clampedScale = Math.max(0.1, Math.min(5, newScale))
-
-    setScale(clampedScale)
-
-    // Adjust position to zoom towards mouse pointer
-    setPosition({
-      x: (pointer.x - (pointer.x - position.x) * (clampedScale / oldScale)),
-      y: (pointer.y - (pointer.y - position.y) * (clampedScale / oldScale))
-    })
+    return () => {
+      container.removeEventListener('wheel', handleWheel)
+    }
   }, [scale, position])
 
   // Keyboard shortcuts
@@ -453,6 +536,21 @@ function Canvas() {
       else if (e.key === 'Escape') {
         setSelectedIds(new Set())
       }
+      // + or =: zoom in
+      else if (e.key === '+' || e.key === '=') {
+        e.preventDefault()
+        handleZoomIn()
+      }
+      // - or _: zoom out
+      else if (e.key === '-' || e.key === '_') {
+        e.preventDefault()
+        handleZoomOut()
+      }
+      // Home: reset zoom and pan
+      else if (e.key === 'Home') {
+        e.preventDefault()
+        handleZoomReset()
+      }
       // Arrow keys: nudge selected objects
       else if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.key) && selectedIds.size > 0) {
         e.preventDefault()
@@ -487,29 +585,35 @@ function Canvas() {
       window.removeEventListener('keydown', handleKeyDown)
       window.removeEventListener('keyup', handleKeyUp)
     }
-  }, [selectedIds, isAuthenticated, objects, handleCopy, handleCut, handlePaste, handleSelectAll, handleNudge, handleDeleteSelected, handleDuplicate, isPanning])
+  }, [selectedIds, isAuthenticated, objects, handleCopy, handleCut, handlePaste, handleSelectAll, handleNudge, handleDeleteSelected, handleDuplicate, isPanning, handleZoomIn, handleZoomOut, handleZoomReset])
 
   return (
     <div className="canvas-page">
-      <Toolbar
-        isConnected={isConnected}
+      <TopToolbar
         isAuthenticated={isAuthenticated}
         objectCount={objects.length}
-        hasSelection={selectedIds.size > 0}
         selectedCount={selectedIds.size}
-        onAddRectangle={handleAddRectangle}
-        onAddShape={handleAddShape}
+        hasSelection={selectedIds.size > 0}
         onDuplicate={handleDuplicate}
         onColorChange={handleColorChange}
         onDeleteSelected={handleDeleteSelected}
+        onZoomIn={handleZoomIn}
+        onZoomOut={handleZoomOut}
+        onZoomReset={handleZoomReset}
+        onPanReset={handlePanReset}
+        onCreateRandomObjects={handleCreateRandomObjects}
+      />
+
+      <Toolbar
+        isAuthenticated={isAuthenticated}
+        onAddRectangle={handleAddRectangle}
+        onAddShape={handleAddShape}
       />
 
       <div
         ref={containerRef}
         className="canvas-container"
-        style={{ position: 'relative', width: '100%', height: 'calc(100vh - 130px)', overflow: 'hidden' }}
         onMouseMove={handleMouseMove}
-        onWheel={handleWheel as any}
       >
         <KonvaCanvas
           objects={objects}

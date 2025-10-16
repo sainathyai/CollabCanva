@@ -3,11 +3,12 @@
 ## Technology Stack
 
 ### Frontend
-- **Framework**: React 18.2.0
-- **Build Tool**: Vite 5.0.8
-- **Language**: TypeScript 5.2.2
-- **Routing**: React Router 6.21.1
-- **Auth**: Firebase SDK 10.7.1
+- **Framework**: React 19.2.0 (upgraded in PR10)
+- **Canvas Library**: Konva 10.0.2 + React Konva 19.0.10 (added in PR10)
+- **Build Tool**: Vite 4.5.3
+- **Language**: TypeScript 5.3.3
+- **Routing**: React Router 6.22.0
+- **Auth**: Firebase SDK 12.4.0 (upgraded in PR10)
 - **Styling**: Plain CSS (no framework)
 - **Testing**: Vitest + @testing-library/react
 
@@ -86,7 +87,7 @@ CollabCanva/
 ├── frontend/
 │   ├── src/
 │   │   ├── pages/          # Route components (Login, Canvas)
-│   │   ├── components/     # Reusable components (Header, Toolbar, CursorOverlay)
+│   │   ├── components/     # Reusable components (Header, Toolbar, CursorOverlay, KonvaCanvas)
 │   │   ├── routes/         # Router configuration
 │   │   ├── lib/            # Utilities (auth, ws client, canvas logic)
 │   │   ├── types.ts        # TypeScript interfaces
@@ -121,22 +122,24 @@ CollabCanva/
 ### Frontend Dependencies
 ```json
 {
-  "react": "^18.2.0",
-  "react-dom": "^18.2.0",
-  "react-router-dom": "^6.21.1",
-  "firebase": "^10.7.1"
+  "react": "^19.2.0",
+  "react-dom": "^19.2.0",
+  "react-router-dom": "^6.22.0",
+  "firebase": "^12.4.0",
+  "konva": "^10.0.2",
+  "react-konva": "^19.0.10"
 }
 ```
 
 ### Frontend DevDependencies
 ```json
 {
-  "@types/react": "^18.2.43",
-  "@types/react-dom": "^18.2.17",
+  "@types/react": "^19.2.2",
+  "@types/react-dom": "^19.2.2",
   "@vitejs/plugin-react": "^4.2.1",
-  "typescript": "^5.2.2",
-  "vite": "^5.0.8",
-  "vitest": "^1.1.0",
+  "typescript": "^5.3.3",
+  "vite": "^4.5.3",
+  "vitest": "^1.2.0",
   "@testing-library/react": "^14.1.2"
 }
 ```
@@ -281,23 +284,23 @@ services:
 ## Known Technical Issues
 
 ### 1. Render Cold Starts
-**Issue**: First request after 15 min idle takes 30-60 seconds  
-**Workaround**: User sees "Connecting..." message, automatic retry  
+**Issue**: First request after 15 min idle takes 30-60 seconds
+**Workaround**: User sees "Connecting..." message, automatic retry
 **Future Fix**: Upgrade to paid tier ($7/month) for always-on
 
 ### 2. WebSocket Disconnect on Render Deploy
-**Issue**: Active connections dropped when new version deploys  
-**Workaround**: Client auto-reconnects, gets fresh state  
+**Issue**: Active connections dropped when new version deploys
+**Workaround**: Client auto-reconnects, gets fresh state
 **Acceptable**: Deploy frequency low enough not to impact UX
 
 ### 3. HTTPS Mixed Content
-**Issue**: Cannot mix ws:// (insecure WebSocket) with https:// page  
-**Solution**: Use wss:// (secure WebSocket) in production  
+**Issue**: Cannot mix ws:// (insecure WebSocket) with https:// page
+**Solution**: Use wss:// (secure WebSocket) in production
 **Configuration**: VITE_WS_URL=wss://... for production
 
 ### 4. Firebase Token Expiration
-**Issue**: ID tokens expire after 1 hour  
-**Current**: User must refresh page to re-authenticate  
+**Issue**: ID tokens expire after 1 hour
+**Current**: User must refresh page to re-authenticate
 **Future**: Implement token refresh in frontend
 
 ## Development Tools
@@ -410,24 +413,36 @@ curl https://collab-canva-jdte.vercel.app
 - ⚠️ Input sanitization (rectangles only, no user content)
 - ⚠️ DDoS protection (relying on Render/Vercel infrastructure)
 
+## Recent Technical Improvements (PR10)
+
+### Completed
+1. ✅ **Konva Canvas Library**: Professional canvas rendering with built-in transformations
+2. ✅ **Multiple Shape Types**: 12+ shapes beyond rectangles (circles, text, lines, polygons, etc.)
+3. ✅ **Transformations**: Rotation and scaling with visual handles
+4. ✅ **Multi-Selection**: Shift+click and area selection
+5. ✅ **Canvas Controls**: Zoom and pan functionality
+6. ✅ **Enhanced Interactions**: Copy/paste, duplicate, color picker
+
 ## Future Technical Improvements
 
 ### If Scaling Up
 1. **Add Database**: Firestore or PostgreSQL for persistence
 2. **Add Redis**: Pub/sub for multi-instance support
 3. **Add Rate Limiting**: Prevent abuse
-4. **Optimize Rendering**: Canvas only redraw changed objects
+4. **Optimize Rendering**: Use Konva's layering for better performance
 5. **Add Service Worker**: Offline support, faster loads
 6. **Add Sentry**: Error tracking and monitoring
 7. **Add Analytics**: User behavior tracking
 8. **Upgrade Hosting**: Paid tier for no cold starts
 
-### If Adding Features
-1. **More Shapes**: Circles, lines, text, images
-2. **Persistence**: Save/load canvas sessions
-3. **Multiple Canvases**: Room system
-4. **Permissions**: Private canvases, access control
-5. **History**: Undo/redo functionality
-6. **Export**: Save as PNG/SVG
-7. **Chat**: Text communication alongside canvas
+### If Adding More Features
+1. ✅ **More Shapes**: DONE in PR10
+2. **Free-hand Drawing**: Pen/brush tool for sketching
+3. **Images**: Upload and embed images on canvas
+4. **Persistence**: Save/load canvas sessions to database
+5. **Multiple Canvases**: Room system for separate sessions
+6. **Permissions**: Private canvases, access control
+7. **History**: Undo/redo functionality with command pattern
+8. **Export**: Save as PNG/SVG
+9. **Chat**: Text communication alongside canvas
 
