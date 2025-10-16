@@ -146,19 +146,23 @@ export async function updateProject(
       const now = new Date().toISOString()
 
       // Build update expression dynamically
+      // Use ExpressionAttributeNames to avoid reserved keywords (like 'name')
       const updateExpressions: string[] = ['updatedAt = :updatedAt']
       const expressionAttributeValues: Record<string, any> = {
         ':updatedAt': now
       }
+      const expressionAttributeNames: Record<string, string> = {}
 
       if (updates.name !== undefined) {
-        updateExpressions.push('name = :name')
+        updateExpressions.push('#name = :name')
         expressionAttributeValues[':name'] = updates.name
+        expressionAttributeNames['#name'] = 'name'
       }
 
       if (updates.description !== undefined) {
-        updateExpressions.push('description = :description')
+        updateExpressions.push('#description = :description')
         expressionAttributeValues[':description'] = updates.description
+        expressionAttributeNames['#description'] = 'description'
       }
 
       if (updates.isPublic !== undefined) {
@@ -176,6 +180,7 @@ export async function updateProject(
         Key: { projectId },
         UpdateExpression: `SET ${updateExpressions.join(', ')}`,
         ExpressionAttributeValues: expressionAttributeValues,
+        ExpressionAttributeNames: Object.keys(expressionAttributeNames).length > 0 ? expressionAttributeNames : undefined,
         ReturnValues: 'ALL_NEW'
       }))
 

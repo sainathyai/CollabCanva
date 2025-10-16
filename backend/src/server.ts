@@ -3,9 +3,10 @@ import { env } from './env.js'
 import { logger } from './utils/logger.js'
 import { healthHandler } from './http/health.js'
 import { metricsHandler } from './http/metrics.js'
+import { projectsHandler } from './http/projects.js'
 import { setupWebSocket } from './ws/index.js'
 import { initializeDatabase } from './db/dynamodb.js'
-import { loadFromDatabase } from './state/canvasState.js'
+import { loadFromDatabase, DEFAULT_PROJECT_ID } from './state/canvasState.js'
 import { startAutoSaveWorker, stopAutoSaveWorker } from './workers/autoSaveWorker.js'
 
 // Create HTTP server
@@ -36,6 +37,12 @@ const server = http.createServer((req, res) => {
     return
   }
 
+  // Project API routes
+  if (req.url?.startsWith('/api/projects')) {
+    projectsHandler(req, res)
+    return
+  }
+
   // 404 for unknown routes
   res.writeHead(404, { 'Content-Type': 'application/json' })
   res.end(JSON.stringify({ error: 'Not found' }))
@@ -53,8 +60,8 @@ async function initializeServer() {
     await initializeDatabase()
     logger.info('✅ Database initialization complete')
 
-    // Load existing objects from database into memory
-    const loadedCount = await loadFromDatabase()
+    // Load existing objects from database into memory (default project for backward compatibility)
+    const loadedCount = await loadFromDatabase(DEFAULT_PROJECT_ID)
     if (loadedCount > 0) {
       logger.info(`📦 Loaded ${loadedCount} objects from database`)
     } else {
@@ -74,7 +81,7 @@ async function initializeServer() {
     logger.error('⚠️  Auto-save worker failed to start:', error)
     logger.warn('⚠️  Server will continue without auto-save')
   }
-  
+
   // Start server regardless of DB status (graceful degradation)
   server.listen(env.PORT, () => {
     logger.info('🎨 CollabCanvas Backend Ready!')

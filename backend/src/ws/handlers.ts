@@ -17,6 +17,9 @@ import * as presenceState from '../state/presenceState.js'
 // Store authenticated users (in-memory for MVP)
 export const connectedClients = new Map<WebSocket, UserClaims>()
 
+// Store current project ID for each connection
+export const clientProjects = new Map<WebSocket, string>()
+
 /**
  * Handle incoming WebSocket messages
  */
@@ -73,10 +76,16 @@ async function handleAuth(ws: WebSocket, message: AuthMessage) {
       timestamp: new Date().toISOString()
     }))
 
+    // Get projectId (default for backward compatibility)
+    // In PR14, frontend will send this; for now use default
+    const projectId = canvasState.DEFAULT_PROJECT_ID
+    clientProjects.set(ws, projectId)
+
     // SECURITY FIX: Send initial canvas state ONLY after authentication
-    const initialObjects = canvasState.getAllObjects()
+    const initialObjects = canvasState.getAllObjects(projectId)
     logger.info('Sending initial state to authenticated user', {
       userId: userClaims.uid,
+      projectId,
       objectCount: initialObjects.length,
       objects: initialObjects.map(o => ({ id: o.id, type: o.type, createdBy: o.createdBy }))
     })
@@ -137,18 +146,20 @@ function handleObjectCreate(ws: WebSocket, message: ObjectCreateMessage) {
       return
     }
 
-    // Create object in state
-    const object = canvasState.createObject(message.object)
+    const projectId = clientProjects.get(ws) || canvasState.DEFAULT_PROJECT_ID
 
-    // Broadcast to all clients including sender
+    // Create object in state for this project
+    const object = canvasState.createObject(projectId, message.object)
+
+    // Broadcast to all clients in the same project
     const broadcastMessage = JSON.stringify({
       type: MessageType.OBJECT_CREATE,
       object,
       timestamp: new Date().toISOString()
     })
 
-    broadcastToAll(broadcastMessage)
-    logger.info('Object created and broadcasted', { id: object.id, userId: user.uid })
+    broadcastToProject(projectId, broadcastMessage)
+    logger.info('Object created and broadcasted', { id: object.id, projectId, userId: user.uid })
   } catch (error) {
     logger.error('Error creating object', { error })
     sendError(ws, 'Failed to create object')
@@ -166,18 +177,20 @@ function handleObjectUpdate(ws: WebSocket, message: ObjectUpdateMessage) {
       return
     }
 
-    // Update object in state (last-write-wins)
-    const object = canvasState.updateObject(message.object)
+    const projectId = clientProjects.get(ws) || canvasState.DEFAULT_PROJECT_ID
 
-    // Broadcast to all clients including sender
+    // Update object in state (last-write-wins) for this project
+    const object = canvasState.updateObject(projectId, message.object)
+
+    // Broadcast to all clients in the same project
     const broadcastMessage = JSON.stringify({
       type: MessageType.OBJECT_UPDATE,
       object,
       timestamp: new Date().toISOString()
     })
 
-    broadcastToAll(broadcastMessage)
-    logger.debug('Object updated and broadcasted', { id: object.id })
+    broadcastToProject(projectId, broadcastMessage)
+    logger.debug('Object updated and broadcasted', { id: object.id, projectId })
   } catch (error) {
     logger.error('Error updating object', { error })
     sendError(ws, 'Failed to update object')
@@ -195,19 +208,21 @@ function handleObjectDelete(ws: WebSocket, message: ObjectDeleteMessage) {
       return
     }
 
-    // Delete object from state
-    const deleted = canvasState.deleteObject(message.objectId)
+    const projectId = clientProjects.get(ws) || canvasState.DEFAULT_PROJECT_ID
+
+    // Delete object from state for this project
+    const deleted = canvasState.deleteObject(projectId, message.objectId)
 
     if (deleted) {
-      // Broadcast to all clients including sender
+      // Broadcast to all clients in the same project
       const broadcastMessage = JSON.stringify({
         type: MessageType.OBJECT_DELETE,
         objectId: message.objectId,
         timestamp: new Date().toISOString()
       })
 
-      broadcastToAll(broadcastMessage)
-      logger.info('Object deleted and broadcasted', { id: message.objectId })
+      broadcastToProject(projectId, broadcastMessage)
+      logger.info('Object deleted and broadcasted', { id: message.objectId, projectId })
     } else {
       sendError(ws, 'Object not found')
     }
@@ -278,6 +293,7 @@ export function handleDisconnect(ws: WebSocket) {
     broadcastToAll(leaveMessage)
 
     connectedClients.delete(ws)
+    clientProjects.delete(ws)
   }
 }
 
@@ -287,6 +303,21 @@ export function handleDisconnect(ws: WebSocket) {
 export function broadcast(sender: WebSocket, message: string) {
   connectedClients.forEach((user, client) => {
     if (client !== sender && client.readyState === WebSocket.OPEN) {
+      client.send(message)
+    }
+  })
+}
+
+/**
+ * Broadcast message to all clients in a specific project
+ * @param projectId - Project ID to broadcast to
+ * @param message - Message to broadcast
+ * @param exclude - Optional client to exclude from broadcast
+ */
+function broadcastToProject(projectId: string, message: string, exclude?: WebSocket) {
+  connectedClients.forEach((user, client) => {
+    const clientProjectId = clientProjects.get(client)
+    if (clientProjectId === projectId && client.readyState === WebSocket.OPEN && client !== exclude) {
       client.send(message)
     }
   })

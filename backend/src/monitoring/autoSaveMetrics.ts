@@ -1,6 +1,6 @@
 /**
  * Auto-Save Metrics
- * 
+ *
  * Tracks performance and success metrics for the auto-save worker.
  * Useful for monitoring and debugging in production.
  */
@@ -41,16 +41,16 @@ export function recordSave(projectId: string, objectCount: number, durationMs: n
     durationMs,
     timestamp: Date.now()
   }
-  
+
   recentSaves.push(metric)
   if (recentSaves.length > MAX_HISTORY) {
     recentSaves.shift()
   }
-  
+
   totalSaves++
   totalObjectsSaved += objectCount
   totalDurationMs += durationMs
-  
+
   logger.debug(`[Metrics] Recorded save: ${projectId}, ${objectCount} objects, ${durationMs}ms`)
 }
 
@@ -63,14 +63,14 @@ export function recordSaveError(projectId: string, error: unknown): void {
     error,
     timestamp: Date.now()
   }
-  
+
   recentErrors.push(errorRecord)
   if (recentErrors.length > MAX_HISTORY) {
     recentErrors.shift()
   }
-  
+
   totalErrors++
-  
+
   logger.debug(`[Metrics] Recorded error for ${projectId}`)
 }
 
@@ -90,11 +90,11 @@ export function getMetrics(): {
   const averageDurationMs = totalSaves > 0 ? Math.round(totalDurationMs / totalSaves) : 0
   const totalOperations = totalSaves + totalErrors
   const successRate = totalOperations > 0 ? (totalSaves / totalOperations) * 100 : 100
-  
-  const lastSaveTimestamp = recentSaves.length > 0 
-    ? recentSaves[recentSaves.length - 1].timestamp 
+
+  const lastSaveTimestamp = recentSaves.length > 0
+    ? recentSaves[recentSaves.length - 1].timestamp
     : null
-  
+
   return {
     totalSaves,
     totalObjectsSaved,

@@ -1,6 +1,6 @@
 /**
  * Dirty Flag System
- * 
+ *
  * Tracks which projects have unsaved changes that need to be persisted to DynamoDB.
  * Used by the auto-save worker to determine which projects need saving.
  */
@@ -15,7 +15,7 @@ const dirtyProjects = new Map<string, number>()
 
 /**
  * Mark a project as dirty (has unsaved changes)
- * 
+ *
  * @param projectId Project that was modified
  */
 export function markDirty(projectId: string): void {
@@ -26,7 +26,7 @@ export function markDirty(projectId: string): void {
 
 /**
  * Check if a project has unsaved changes
- * 
+ *
  * @param projectId Project to check
  * @returns True if project has unsaved changes
  */
@@ -36,7 +36,7 @@ export function isDirty(projectId: string): boolean {
 
 /**
  * Clear dirty flag for a project (after successful save)
- * 
+ *
  * @param projectId Project that was saved
  */
 export function clearDirty(projectId: string): void {
@@ -48,7 +48,7 @@ export function clearDirty(projectId: string): void {
 
 /**
  * Get all projects that have unsaved changes
- * 
+ *
  * @returns Array of [projectId, lastModifiedTimestamp] tuples
  */
 export function getDirtyProjects(): Array<[string, number]> {
@@ -57,7 +57,7 @@ export function getDirtyProjects(): Array<[string, number]> {
 
 /**
  * Get the count of projects with unsaved changes
- * 
+ *
  * @returns Number of dirty projects
  */
 export function getDirtyProjectCount(): number {
@@ -66,7 +66,7 @@ export function getDirtyProjectCount(): number {
 
 /**
  * Get last modification timestamp for a project
- * 
+ *
  * @param projectId Project to check
  * @returns Timestamp of last modification, or null if not dirty
  */
@@ -101,7 +101,7 @@ export function getDirtyStats(): {
 
   const entries = Array.from(dirtyProjects.entries())
   const oldestTimestamp = Math.min(...entries.map(([_, ts]) => ts))
-  
+
   return {
     totalDirty: dirtyProjects.size,
     oldestModification: oldestTimestamp,

@@ -1,6 +1,6 @@
 /**
  * Metrics HTTP Endpoint
- * 
+ *
  * Returns auto-save performance metrics and dirty flag statistics
  */
 
@@ -17,7 +17,7 @@ export function metricsHandler(req: IncomingMessage, res: ServerResponse): void 
     const recentSaves = getRecentSaves(5)
     const recentErrors = getRecentErrors(5)
     const autoSaveConfig = getAutoSaveConfig()
-    
+
     const response = {
       timestamp: new Date().toISOString(),
       autoSave: {
@@ -28,14 +28,14 @@ export function metricsHandler(req: IncomingMessage, res: ServerResponse): void 
         totalErrors: saveMetrics.totalErrors,
         averageDurationMs: saveMetrics.averageDurationMs,
         successRate: saveMetrics.successRate,
-        lastSaveTimestamp: saveMetrics.lastSaveTimestamp 
-          ? new Date(saveMetrics.lastSaveTimestamp).toISOString() 
+        lastSaveTimestamp: saveMetrics.lastSaveTimestamp
+          ? new Date(saveMetrics.lastSaveTimestamp).toISOString()
           : null
       },
       dirtyProjects: {
         count: dirtyStats.totalDirty,
-        oldestModification: dirtyStats.oldestModification 
-          ? new Date(dirtyStats.oldestModification).toISOString() 
+        oldestModification: dirtyStats.oldestModification
+          ? new Date(dirtyStats.oldestModification).toISOString()
           : null,
         projectIds: dirtyStats.projects
       },
@@ -44,10 +44,10 @@ export function metricsHandler(req: IncomingMessage, res: ServerResponse): void 
         errors: recentErrors
       }
     }
-    
+
     res.writeHead(200, { 'Content-Type': 'application/json' })
     res.end(JSON.stringify(response, null, 2))
-    
+
     logger.debug('[Metrics] Endpoint accessed')
   } catch (error) {
     logger.error('[Metrics] Error generating metrics:', error)

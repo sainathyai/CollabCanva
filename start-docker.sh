@@ -33,3 +33,8 @@ echo ""
 echo "👋 Stopped. Run 'docker-compose down' to remove containers."
 
 
+
+
+
+
+

@@ -1,8 +1,8 @@
 # PR13: Auto-Save System & Multi-Container Support
 
-**Branch**: `pr13-autosave-multicontainer`  
-**Timeline**: 2-3 days  
-**Priority**: High - Enables horizontal scaling  
+**Branch**: `pr13-autosave-multicontainer`
+**Timeline**: 2-3 days
+**Priority**: High - Enables horizontal scaling
 **Status**: Not Started
 
 ---
@@ -95,7 +95,7 @@ Map<projectId, lastModifiedTimestamp>
 ```typescript
 setInterval(async () => {
   const dirtyProjects = getDirtyProjects()
-  
+
   for (const projectId of dirtyProjects) {
     try {
       const objects = getAllObjectsForProject(projectId)
@@ -226,7 +226,7 @@ export async function getObjectWithFallback(id: string): Promise<CanvasObject | 
   // Try memory first
   const cached = canvasObjects.get(id)
   if (cached) return cached
-  
+
   // Load from database
   const objects = await loadFromDatabase(DEFAULT_PROJECT_ID)
   // Now in cache

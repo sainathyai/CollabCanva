@@ -1,6 +1,6 @@
 /**
  * Auto-Save Worker
- * 
+ *
  * Background worker that runs every 5 seconds to save modified projects to DynamoDB.
  * This batch approach is more efficient than saving on every single change.
  */
@@ -43,7 +43,7 @@ async function autoSaveLoop(): Promise<void> {
     try {
       // Get all objects for this project from memory
       const objects = getAllObjectsForProject(projectId)
-      
+
       if (objects.length === 0) {
         logger.debug(`[AutoSave] Project ${projectId} has no objects, skipping`)
         clearDirty(projectId)
@@ -51,19 +51,19 @@ async function autoSaveLoop(): Promise<void> {
       }
 
       logger.debug(`[AutoSave] Saving ${objects.length} objects for project ${projectId}`)
-      
+
       // Save to DynamoDB in batches
       const savedCount = await saveObjects(projectId, objects)
-      
+
       if (savedCount === objects.length) {
         // All objects saved successfully
         clearDirty(projectId)
         successfulProjects++
         totalObjectsSaved += savedCount
-        
+
         const ageSeconds = Math.round((Date.now() - lastModified) / 1000)
         logger.info(`[AutoSave] ✅ Saved ${savedCount} objects for ${projectId} (age: ${ageSeconds}s)`)
-        
+
         // Record metrics
         recordSave(projectId, savedCount, Date.now() - startTime)
       } else {
@@ -72,7 +72,7 @@ async function autoSaveLoop(): Promise<void> {
         logger.warn(`[AutoSave] ⚠️  Partial save for ${projectId}: ${savedCount}/${objects.length} objects`)
         recordSaveError(projectId, new Error(`Partial save: ${savedCount}/${objects.length}`))
       }
-      
+
     } catch (error) {
       failedProjects++
       logger.error(`[AutoSave] ❌ Failed to save project ${projectId}:`, error)
@@ -95,20 +95,20 @@ export function startAutoSaveWorker(): void {
   }
 
   isRunning = true
-  
+
   // Run immediately on start
   logger.info(`[AutoSave] Worker starting (interval: ${SAVE_INTERVAL_MS}ms)`)
   autoSaveLoop().catch(err => {
     logger.error('[AutoSave] Error in initial save loop:', err)
   })
-  
+
   // Then run every 5 seconds
   autoSaveTimer = setInterval(() => {
     autoSaveLoop().catch(err => {
       logger.error('[AutoSave] Error in save loop:', err)
     })
   }, SAVE_INTERVAL_MS)
-  
+
   logger.info('✅ Auto-save worker started')
 }
 
@@ -122,12 +122,12 @@ export function stopAutoSaveWorker(): void {
   }
 
   isRunning = false
-  
+
   if (autoSaveTimer) {
     clearInterval(autoSaveTimer)
     autoSaveTimer = null
   }
-  
+
   logger.info('Auto-save worker stopped')
 }
 
