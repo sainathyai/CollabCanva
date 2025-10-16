@@ -3,15 +3,21 @@
 **Last Updated**: October 16, 2025
 
 ## Current Status
-🚀 **POST-MVP ENHANCEMENTS - PR10 IN PROGRESS**
+🎯 **PRIORITY: PR11 - AI CANVAS AGENT**
 
-MVP (PR1-PR9) is complete and deployed. Currently working on PR10 to add advanced canvas features using Konva.
+MVP (PR1-PR9) and PR10 (Konva + Advanced Features) are complete. Currently prioritizing PR11 (AI Features) to reach 100/100 points.
 
 ## Recent Changes (Most Recent First)
 
-### Currently Working: PR10 - Konva Transforms (Current Branch)
+### Strategy Update: Reorganized PR Sequence
+- **Date**: October 16, 2025
+- **Change**: Reprioritized AI features from PR15 to PR11
+- **Rationale**: AI features worth 15 points (final requirement for 100/100)
+- **Impact**: Layer panel (0 points) moved from PR11 to PR12
+
+### Completed: PR10 - Konva Transforms + Advanced Features
 - **Branch**: `pr10-konva-transforms`
-- **Status**: In progress, not yet merged
+- **Status**: Complete, ready for merge
 - **Major Changes**:
   - Migrated from vanilla Canvas API to React Konva for rendering
   - Added support for 12+ shape types (circle, text, line, triangle, star, polygon, arrow, ellipse, rounded rect, diamond, pentagon)
@@ -43,7 +49,9 @@ MVP (PR1-PR9) is complete and deployed. Currently working on PR10 to add advance
 9. **PR9**: Smoke tests and final documentation
 
 ## Current Branch
-`pr10-konva-transforms` (off of `main`)
+`pr10-konva-transforms` (ready to merge)
+
+**Next Branch**: `pr11-ai-canvas-agent` (to be created)
 
 ## Working State
 
@@ -73,17 +81,16 @@ MVP (PR1-PR9) is complete and deployed. Currently working on PR10 to add advance
 
 ## Next Steps
 
-### Immediate: Complete and Test PR10
-- Test all new shape types and transformations
-- Verify multi-selection and group operations work across clients
-- Test keyboard shortcuts (Delete, Ctrl+D, Ctrl+C, Ctrl+V)
-- Test zoom and pan functionality
-- Ensure all changes sync properly via WebSocket
-- Update backend types to support new shape types and properties
-- Push branch and create PR
-- Merge to main and deploy
+### Immediate: PR11 - AI Canvas Agent (PRIORITY)
+- Install OpenAI package and get API key
+- Define 6+ AI function types for canvas operations
+- Create AI service with function calling
+- Build chat UI component (sidebar)
+- Integrate with Canvas.tsx
+- Test all command types with multi-user sync
+- **Goal**: Add 15 points → 100/100
 
-### Future Enhancements Beyond PR10
+### After Reaching 100/100
 If user wants to continue:
 
 1. **Polish**:
@@ -197,7 +204,7 @@ None! All critical issues from MVP resolved.
 # Frontend
 cd frontend && npm run dev  # http://localhost:5173
 
-# Backend  
+# Backend
 cd backend && npm run dev   # ws://localhost:8080
 
 # Both use .env files (not committed, see .env.example)

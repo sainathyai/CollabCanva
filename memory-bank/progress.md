@@ -13,7 +13,7 @@ MVP complete and deployed. Currently expanding with advanced features for produc
 
 ### ✅ Canvas Features: 40/40 Points
 - Basic Operations (Create/Edit/Delete): 15/15
-- Multi-Select (Shift+Click): 5/5  
+- Multi-Select (Shift+Click): 5/5
 - Area Selection (Drag rectangle): 5/5
 - Transform Operations (Move/Resize/Rotate): 10/10
 - Color Picker: 2/2
@@ -45,8 +45,8 @@ MVP complete and deployed. Currently expanding with advanced features for produc
 ---
 
 ### ✅ PR10: Konva Migration + Advanced Features (PUSHED, Ready for Review)
-**Branch**: `pr10-konva-transforms` → Awaiting merge to `main`  
-**Commit**: `8cc1fd3` (13 files changed, +2803/-1036 lines)  
+**Branch**: `pr10-konva-transforms` → Awaiting merge to `main`
+**Commit**: `8cc1fd3` (13 files changed, +2803/-1036 lines)
 **PR URL**: https://github.com/sainathyai/CollabCanva/pull/new/pr10-konva-transforms
 
 #### Migration to Konva.js
@@ -152,34 +152,34 @@ MVP complete and deployed. Currently expanding with advanced features for produc
 ## Current Implementation Status
 
 ### What Works Now (PR10)
-✅ 12 shape types rendering and syncing  
-✅ Individual selection boxes (dashed light blue)  
-✅ Area selection by dragging  
-✅ Group movement (smooth, real-time)  
-✅ Independent shape transforms  
-✅ 11 keyboard shortcuts  
-✅ Zoom (10%-500%) with mouse wheel  
-✅ Pan with Space + drag  
-✅ Copy/paste/cut clipboard operations  
-✅ Real user names in cursor labels  
-✅ 60 FPS performance with 50+ objects  
+✅ 12 shape types rendering and syncing
+✅ Individual selection boxes (dashed light blue)
+✅ Area selection by dragging
+✅ Group movement (smooth, real-time)
+✅ Independent shape transforms
+✅ 11 keyboard shortcuts
+✅ Zoom (10%-500%) with mouse wheel
+✅ Pan with Space + drag
+✅ Copy/paste/cut clipboard operations
+✅ Real user names in cursor labels
+✅ 60 FPS performance with 50+ objects
 
 ### Known Limitations
-⚠️ **No Conflict Resolution**: Last-write-wins if 2 users edit same object simultaneously  
-⚠️ **No Object Locking**: Users can edit any object at any time  
-⚠️ **No Undo/Redo**: Only Ctrl+Z would be for browser, not canvas-aware  
-⚠️ **No Persistence**: Canvas state still in-memory only (resets on server restart)  
-⚠️ **No Multi-Canvas**: All users share single canvas (no rooms/projects)  
-⚠️ **No AI Features**: Core requirement for 15 points not yet implemented  
+⚠️ **No Conflict Resolution**: Last-write-wins if 2 users edit same object simultaneously
+⚠️ **No Object Locking**: Users can edit any object at any time
+⚠️ **No Undo/Redo**: Only Ctrl+Z would be for browser, not canvas-aware
+⚠️ **No Persistence**: Canvas state still in-memory only (resets on server restart)
+⚠️ **No Multi-Canvas**: All users share single canvas (no rooms/projects)
+⚠️ **No AI Features**: Core requirement for 15 points not yet implemented
 
 ---
 
 ## Next Steps & Options Discussed
 
 ### PRIORITY 1: AI Canvas Agent (PR15) - 15 Points to 100/100
-**Goal**: Natural language commands to manipulate canvas  
-**Estimated Time**: 4-6 hours  
-**Value**: Guaranteed 15 points, most impressive feature  
+**Goal**: Natural language commands to manipulate canvas
+**Estimated Time**: 4-6 hours
+**Value**: Guaranteed 15 points, most impressive feature
 
 **Features to Implement:**
 1. Chat interface sidebar
@@ -201,9 +201,9 @@ MVP complete and deployed. Currently expanding with advanced features for produc
 - Show AI actions in real-time
 
 ### OPTION 2: Conflict Resolution (Nice-to-have)
-**Goal**: Handle simultaneous edits gracefully  
-**Estimated Time**: 30 mins (basic) to 2 hours (detailed)  
-**Value**: Production polish, uncertain bonus points  
+**Goal**: Handle simultaneous edits gracefully
+**Estimated Time**: 30 mins (basic) to 2 hours (detailed)
+**Value**: Production polish, uncertain bonus points
 
 **Approaches Discussed:**
 1. **Last-Write-Wins (30 mins)**:
@@ -230,9 +230,9 @@ MVP complete and deployed. Currently expanding with advanced features for produc
 **Decision**: Deferred until after AI features
 
 ### OPTION 3: Database Persistence (PR13)
-**Goal**: Save canvas state to DynamoDB  
-**Estimated Time**: 3-4 hours  
-**Value**: Production requirement, but not scored in rubric  
+**Goal**: Save canvas state to DynamoDB
+**Estimated Time**: 3-4 hours
+**Value**: Production requirement, but not scored in rubric
 
 **Features:**
 - Canvas save/load
@@ -243,9 +243,9 @@ MVP complete and deployed. Currently expanding with advanced features for produc
 **Decision**: Defer until after AI features (needed for production, not grading)
 
 ### OPTION 4: AWS Deployment (PR14)
-**Goal**: Deploy to AWS EC2 + Redis + DynamoDB  
-**Estimated Time**: 4-5 hours  
-**Value**: Production-ready, but current deployment works  
+**Goal**: Deploy to AWS EC2 + Redis + DynamoDB
+**Estimated Time**: 4-5 hours
+**Value**: Production-ready, but current deployment works
 
 **Features:**
 - EC2 t3.small for backend (no cold starts)
@@ -259,23 +259,24 @@ MVP complete and deployed. Currently expanding with advanced features for produc
 
 ## Recommended Path to 100/100
 
-### Phase 1: AI Features (PR15) - Next
-**Deliverable**: Natural language canvas agent  
-**Points**: +15 (reaches 100/100)  
-**Time**: 4-6 hours  
-**Priority**: HIGHEST (guaranteed points)  
+### Phase 1: AI Features (PR11) - **CURRENT PRIORITY**
+**Deliverable**: Natural language canvas agent
+**Points**: +15 (reaches 100/100)
+**Time**: 4-6 hours
+**Priority**: HIGHEST (final requirement)
+**Status**: Strategy updated, ready to begin
 
 ### Phase 2: Polish & Production (After 100/100)
-**Deliverable**: Conflict resolution, persistence, AWS  
-**Points**: N/A (already at 100)  
-**Time**: 10-12 hours  
-**Priority**: MEDIUM (production-ready features)  
+**Deliverable**: Layer panel (PR12), persistence (PR13), advanced AI (PR14)
+**Points**: N/A (already at 100)
+**Time**: 10-12 hours
+**Priority**: MEDIUM (nice-to-have features)
 
 ### Phase 3: Demo Video
-**Deliverable**: 5-minute walkthrough  
-**Points**: Required for submission  
-**Time**: 1-2 hours  
-**Priority**: HIGH (after features complete)  
+**Deliverable**: 5-minute walkthrough
+**Points**: Required for submission
+**Time**: 1-2 hours
+**Priority**: HIGH (after reaching 100/100)
 
 ---
 
@@ -377,7 +378,7 @@ ALLOWED_ORIGINS=http://localhost:5173,https://collab-canva-jdte.vercel.app
 ### Measured (PR10)
 - **Initial Load**: ~2 seconds
 - **Shape Creation**: <10ms
-- **Transform Update**: <50ms  
+- **Transform Update**: <50ms
 - **Multi-Select**: <100ms for 10 shapes
 - **Zoom Operation**: <16ms (60 FPS)
 - **Pan Operation**: <16ms (60 FPS)
@@ -395,8 +396,8 @@ ALLOWED_ORIGINS=http://localhost:5173,https://collab-canva-jdte.vercel.app
 
 ### Active Branches
 - `main` - Production (PR1-9 merged)
-- `pr10-konva-transforms` - **PUSHED, awaiting merge**
-- `pr9-smoke-tests-and-fixes` - Previous branch (on main)
+- `pr10-konva-transforms` - Complete, ready to merge
+- `pr11-ai-canvas-agent` - To be created for AI features
 
 ### Commit History (PR10)
 ```
@@ -462,4 +463,9 @@ ALLOWED_ORIGINS=http://localhost:5173,https://collab-canva-jdte.vercel.app
 
 ---
 
-**Status**: PR10 pushed and ready. Pausing for discussion. Next: AI Canvas Agent (PR15) for final 15 points! 🚀
+**Status**: Strategy updated! PR10 complete. Next: AI Canvas Agent (PR11 - renumbered) for final 15 points! 🚀
+
+**PR Renumbering**:
+- AI Features: PR15 → **PR11** (priority)
+- Layer Panel: PR11 → **PR12** (deferred)
+- This keeps GitHub history clean and logical

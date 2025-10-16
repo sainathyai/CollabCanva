@@ -1,41 +1,42 @@
-# PR11: Multi-Select + Layer Management
+# PR12: Layer Panel + Z-Index Management
 
-**Branch**: `pr11-multiselect-layers`
-**Goal**: Add drag-to-select, layer panel with z-index controls
+**Branch**: `pr12-layer-panel`
+**Goal**: Add layer panel with z-index controls
 
-**Prerequisites**: PR10 must be complete and merged
+**Prerequisites**: PR11 (AI Features) should be complete first
+
+**Status**: ⏸️ DEFERRED (Prioritizing AI Features)
+- ✅ Drag-to-select (completed in PR10)
+- ✅ Shift+click multi-select (completed in PR10)
+- ⏳ Layer panel component (deferred)
+- ⏳ Z-index controls (deferred)
+
+**Note**: This PR was originally PR11, but has been deferred in favor of implementing AI features first (new PR11) since AI features are worth 15 rubric points.
 
 ---
 
 ## Task 2.1: Add Drag-to-Select Rectangle
 
-**File**: `frontend/src/components/KonvaCanvas.tsx`
+**Status**: ✅ **COMPLETED IN PR10**
 
-**What to add:**
-- State for selection rectangle (x, y, width, height)
-- onMouseDown handler: start selection rectangle if clicked on empty
-- onMouseMove handler: update selection rectangle size
-- onMouseUp handler: find objects in selection box, select them
-- Render selection rectangle (dashed border, light blue fill)
+This feature was implemented as a bonus in PR10 and is already working.
 
-**Logic:**
-- If click on empty + not shift → start drag-to-select
-- If click on shape → handle normal selection
-- While dragging → show selection rectangle
-- On mouse up → select all objects that intersect with rectangle
-- If shift held → add to existing selection
+**Implementation location**: `frontend/src/components/KonvaCanvas.tsx` (lines 34-177)
 
-**Test immediately:**
-- [ ] Click and drag on empty canvas → selection rectangle appears
-- [ ] Release → objects in rectangle get selected
-- [ ] Shift + drag → adds to selection (doesn't clear existing)
-- [ ] Works smoothly, no jank
+**Features working:**
+- ✅ Click and drag on empty canvas → selection rectangle appears
+- ✅ Release → objects in rectangle get selected
+- ✅ Works with shift key for additive selection
+- ✅ Visual feedback with semi-transparent blue rectangle
+- ✅ Intersection detection working correctly
 
-**Commit**: `feat(canvas): add drag-to-select rectangle`
+**No action needed** - move to Task 2.2
 
 ---
 
 ## Task 2.2: Create Layer Panel Component
+
+**Status**: ⏳ **TODO**
 
 **File**: `frontend/src/components/LayerPanel.tsx` (NEW FILE)
 
@@ -67,6 +68,8 @@
 
 ## Task 2.3: Integrate Layer Panel into Canvas
 
+**Status**: ⏳ **TODO**
+
 **File**: `frontend/src/pages/Canvas.tsx`
 
 **What to add:**
@@ -96,6 +99,8 @@
 
 ## Task 2.4: Add Layer Panel Styles
 
+**Status**: ⏳ **TODO**
+
 **File**: `frontend/src/styles.css`
 
 **What to add:**
@@ -122,6 +127,8 @@
 ---
 
 ## Task 2.5: End-to-End Testing
+
+**Status**: ⏳ **TODO**
 
 **Test all PR11 features:**
 
@@ -168,9 +175,9 @@
 
 ## PR11 Definition of Done
 
-- [ ] Shift+click multi-select works
-- [ ] Drag-to-select rectangle works
-- [ ] Selection rectangle visually clear
+- [x] Shift+click multi-select works ✅ (from PR10)
+- [x] Drag-to-select rectangle works ✅ (from PR10)
+- [x] Selection rectangle visually clear ✅ (from PR10)
 - [ ] Layer panel shows all objects
 - [ ] Click layer item selects object
 - [ ] "Bring to Front" works

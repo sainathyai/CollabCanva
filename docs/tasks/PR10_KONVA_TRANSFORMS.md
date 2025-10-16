@@ -3,6 +3,12 @@
 **Branch**: `pr10-konva-transforms`
 **Goal**: Replace HTML5 Canvas with Konva.js, add resize/rotate/duplicate/color picker
 
+**Status**: ✅ COMPLETE + EXTRAS
+- All planned features implemented
+- Bonus: Area selection (drag-to-select) also added
+- Bonus: Random object generator added
+- Bonus: Comprehensive zoom/pan controls
+
 ---
 
 ## Task 1.1: Install Konva Dependencies
