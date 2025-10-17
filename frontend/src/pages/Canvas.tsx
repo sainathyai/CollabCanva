@@ -556,11 +556,16 @@ function Canvas() {
       const oldScale = scale
 
       const containerRect = container.getBoundingClientRect()
-      const pointer = {
-        x: (e.clientX - containerRect.left) / oldScale,
-        y: (e.clientY - containerRect.top) / oldScale
-      }
+      
+      // Mouse position in screen space (relative to container)
+      const mouseX = e.clientX - containerRect.left
+      const mouseY = e.clientY - containerRect.top
 
+      // Mouse position in canvas space (before zoom)
+      const canvasX = (mouseX - position.x) / oldScale
+      const canvasY = (mouseY - position.y) / oldScale
+
+      // Calculate new scale
       const newScale = e.deltaY < 0 ? oldScale * scaleBy : oldScale / scaleBy
 
       // Limit zoom between 0.1x and 5x
@@ -568,10 +573,11 @@ function Canvas() {
 
       setScale(clampedScale)
 
-      // Adjust position to zoom towards mouse pointer
+      // Adjust position so the point under mouse stays in same place
+      // Formula: newPosition = mousePosition - canvasPoint * newScale
       setPosition({
-        x: (pointer.x - (pointer.x - position.x) * (clampedScale / oldScale)),
-        y: (pointer.y - (pointer.y - position.y) * (clampedScale / oldScale))
+        x: mouseX - canvasX * clampedScale,
+        y: mouseY - canvasY * clampedScale
       })
     }
 
