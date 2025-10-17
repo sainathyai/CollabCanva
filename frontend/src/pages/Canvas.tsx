@@ -930,6 +930,28 @@ function Canvas() {
           break;
         }
 
+        case 'count_objects': {
+          const { type } = parameters as any;
+          
+          let count = 0;
+          let message = '';
+          
+          if (type === 'all') {
+            count = objects.length;
+            message = `There are ${count} object${count !== 1 ? 's' : ''} on the canvas.`;
+          } else {
+            // Count specific type
+            count = objects.filter(obj => obj.type === type).length;
+            message = `There are ${count} ${type}${count !== 1 ? 's' : ''} on the canvas.`;
+          }
+          
+          // Log for debugging
+          console.log(`📊 Count: ${message}`);
+          
+          // Return the count message (AI will display this to user)
+          return message;
+        }
+
         default:
           console.error('Unknown AI function:', functionName);
       }

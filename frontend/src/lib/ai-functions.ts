@@ -226,6 +226,21 @@ export const canvasFunctions = [
       },
       required: ['count']
     }
+  },
+  {
+    name: 'count_objects',
+    description: 'Count the number of objects on the canvas. Can count all objects or filter by specific shape type. Use this when user asks "how many circles?", "count all objects", etc.',
+    parameters: {
+      type: 'object',
+      properties: {
+        type: {
+          type: 'string',
+          enum: ['all', 'rectangle', 'circle', 'triangle', 'star', 'ellipse', 'roundedRect', 'diamond', 'pentagon', 'polygon', 'arrow', 'line', 'text'],
+          description: 'Type of objects to count. Use "all" to count all objects regardless of type.'
+        }
+      },
+      required: ['type']
+    }
   }
 ];
 
@@ -284,6 +299,10 @@ export type DeleteRandomObjectsParams = {
   count: number;
 };
 
+export type CountObjectsParams = {
+  type: 'all' | CanvasObject['type'];
+};
+
 export type AIFunctionName =
   | 'generate_random_objects'
   | 'create_shape'
@@ -294,7 +313,8 @@ export type AIFunctionName =
   | 'delete_objects'
   | 'arrange_objects'
   | 'duplicate_objects'
-  | 'delete_random_objects';
+  | 'delete_random_objects'
+  | 'count_objects';
 
 export type AIFunctionParams =
   | GenerateRandomObjectsParams
@@ -306,5 +326,6 @@ export type AIFunctionParams =
   | DeleteObjectsParams
   | ArrangeObjectsParams
   | DuplicateObjectsParams
-  | DeleteRandomObjectsParams;
+  | DeleteRandomObjectsParams
+  | CountObjectsParams;
 
