@@ -8,5 +8,31 @@ export default defineConfig({
     port: 5173,
     host: true,
   },
+  build: {
+    target: 'es2020',
+    minify: 'terser',
+    terserOptions: {
+      compress: {
+        drop_console: true, // Remove console.logs in production
+        drop_debugger: true,
+        pure_funcs: ['console.log', 'console.debug']
+      }
+    },
+    rollupOptions: {
+      output: {
+        // Manual chunk splitting for better caching
+        manualChunks: {
+          'react-vendor': ['react', 'react-dom', 'react-router-dom'],
+          'konva-vendor': ['react-konva', 'konva'],
+          'firebase-vendor': ['firebase/app', 'firebase/auth']
+        }
+      }
+    },
+    chunkSizeWarningLimit: 500,
+    reportCompressedSize: true
+  },
+  optimizeDeps: {
+    include: ['react', 'react-dom', 'react-konva', 'konva']
+  }
 })
 

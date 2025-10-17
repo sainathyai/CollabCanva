@@ -1,0 +1,18 @@
+{
+  "Changes": [
+    {
+      "Action": "CREATE",
+      "ResourceRecordSet": {
+        "Name": "app.sainathyai.com",
+        "Type": "CNAME",
+        "TTL": 300,
+        "ResourceRecords": [
+          {
+            "Value": "d2d4bazwy3b8il.cloudfront.net"
+          }
+        ]
+      }
+    }
+  ]
+}
+

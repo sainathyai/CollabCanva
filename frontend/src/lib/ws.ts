@@ -36,8 +36,8 @@ class WebSocketClient {
   private ws: WebSocket | null = null
   private url: string
   private reconnectAttempts = 0
-  private maxReconnectAttempts = 5
-  private reconnectDelay = 1000
+  private maxReconnectAttempts = 10 // 🚀 Increased from 5 to 10 for heavy loads
+  private reconnectDelay = 2000 // 🚀 Increased from 1s to 2s for better stability
   private messageHandlers: Set<MessageHandler> = new Set()
   private isIntentionallyClosed = false
   private connectionReady = false

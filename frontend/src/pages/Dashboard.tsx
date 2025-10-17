@@ -11,7 +11,7 @@ import { useProject } from '../contexts/ProjectContext'
 import { getUserProjects, createProject, deleteProject, updateProject, addCollaborator, removeCollaborator } from '../lib/projectApi'
 import type { Project } from '../contexts/ProjectContext'
 
-export function Dashboard() {
+function Dashboard() {
   const user = getCurrentUser()
   const { projects, setProjects } = useProject()
   const navigate = useNavigate()
@@ -1724,3 +1724,5 @@ function ProjectCard({ project, currentUserEmail, isOwner, onOpen, onEdit, onDel
     </div>
   )
 }
+
+export default Dashboard

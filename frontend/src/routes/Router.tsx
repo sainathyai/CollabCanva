@@ -1,10 +1,12 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, lazy, Suspense } from 'react'
 import { Routes, Route, Navigate } from 'react-router-dom'
 import { onAuthChange } from '../lib/auth'
 import { ProjectProvider } from '../contexts/ProjectContext'
 import Login from '../pages/Login'
-import Canvas from '../pages/Canvas'
-import { Dashboard } from '../pages/Dashboard'
+
+// Lazy load heavy components for better initial load performance
+const Canvas = lazy(() => import('../pages/Canvas'))
+const Dashboard = lazy(() => import('../pages/Dashboard'))
 
 function Router() {
   const [isAuthenticated, setIsAuthenticated] = useState<boolean | null>(null)
@@ -22,10 +24,10 @@ function Router() {
   // Show loading state while checking auth
   if (isAuthenticated === null) {
     return (
-      <div style={{ 
-        display: 'flex', 
-        justifyContent: 'center', 
-        alignItems: 'center', 
+      <div style={{
+        display: 'flex',
+        justifyContent: 'center',
+        alignItems: 'center',
         height: '100vh',
         fontFamily: 'system-ui, -apple-system, sans-serif'
       }}>
@@ -36,36 +38,48 @@ function Router() {
 
   return (
     <ProjectProvider>
-      <Routes>
-        <Route 
-          path="/login" 
-          element={
-            isAuthenticated ? <Navigate to="/dashboard" replace /> : <Login />
-          } 
-        />
-        <Route 
-          path="/dashboard" 
-          element={
-            isAuthenticated ? <Dashboard /> : <Navigate to="/login" replace />
-          } 
-        />
-        <Route 
-          path="/canvas/:projectId" 
-          element={
-            isAuthenticated ? <Canvas /> : <Navigate to="/login" replace />
-          } 
-        />
-        {/* Legacy route - redirect to dashboard */}
-        <Route 
-          path="/canvas" 
-          element={<Navigate to="/dashboard" replace />} 
-        />
-        <Route 
-          path="/" 
-          element={<Navigate to={isAuthenticated ? "/dashboard" : "/login"} replace />} 
-        />
-        <Route path="*" element={<Navigate to="/login" replace />} />
-      </Routes>
+      <Suspense fallback={
+        <div style={{
+          display: 'flex',
+          justifyContent: 'center',
+          alignItems: 'center',
+          height: '100vh',
+          fontFamily: 'system-ui, -apple-system, sans-serif'
+        }}>
+          Loading...
+        </div>
+      }>
+        <Routes>
+          <Route
+            path="/login"
+            element={
+              isAuthenticated ? <Navigate to="/dashboard" replace /> : <Login />
+            }
+          />
+          <Route
+            path="/dashboard"
+            element={
+              isAuthenticated ? <Dashboard /> : <Navigate to="/login" replace />
+            }
+          />
+          <Route
+            path="/canvas/:projectId"
+            element={
+              isAuthenticated ? <Canvas /> : <Navigate to="/login" replace />
+            }
+          />
+          {/* Legacy route - redirect to dashboard */}
+          <Route
+            path="/canvas"
+            element={<Navigate to="/dashboard" replace />}
+          />
+          <Route
+            path="/"
+            element={<Navigate to={isAuthenticated ? "/dashboard" : "/login"} replace />}
+          />
+          <Route path="*" element={<Navigate to="/login" replace />} />
+        </Routes>
+      </Suspense>
     </ProjectProvider>
   )
 }

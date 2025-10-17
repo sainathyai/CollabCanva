@@ -1,0 +1,17 @@
+﻿{
+    "SUBNET_2":  "subnet-03260fcd9c243f7b8",
+    "AWS_ACCOUNT_ID":  "971422717446",
+    "AWS_REGION":  "us-east-2",
+    "SUBNET_1":  "subnet-068fcd2e51c94a130",
+    "ECR_URI":  "971422717446.dkr.ecr.us-east-2.amazonaws.com/collabcanvas-backend",
+    "EXECUTION_ROLE_ARN":  "arn:aws:iam::971422717446:role/collabcanvas-task-execution-role",
+    "LOG_GROUP_NAME":  "/ecs/collabcanvas-backend",
+    "ECS_SG_ID":  "sg-00ce7abbccd9a8e74",
+    "TASK_ROLE_ARN":  "arn:aws:iam::971422717446:role/collabcanvas-task-role",
+    "ALB_SG_ID":  "sg-0dc01d0593e600463",
+    "VPC_ID":  "vpc-07c7f6104ea4eeb60",
+    "PROJECT_NAME":  "collabcanvas",
+    "ALB_DNS":  "collabcanvas-alb-1957081275.us-east-2.elb.amazonaws.com",
+    "ALB_ARN":  "arn:aws:elasticloadbalancing:us-east-2:971422717446:loadbalancer/app/collabcanvas-alb/58e7cefa4c251b14",
+    "TARGET_GROUP_ARN":  "arn:aws:elasticloadbalancing:us-east-2:971422717446:targetgroup/collabcanvas-tg/dede57a0ce980b1b"
+}
