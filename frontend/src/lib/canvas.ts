@@ -16,7 +16,7 @@ export function createRectangle(
   y: number,
   width: number,
   height: number,
-  fill: string,
+  color: string,
   createdBy: string
 ): CanvasObject {
   return {
@@ -26,10 +26,11 @@ export function createRectangle(
     y,
     width,
     height,
-    fill,
+    color,
+    rotation: 0,
+    zIndex: 0,
     createdBy,
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString()
+    createdAt: new Date().toISOString()
   }
 }
 
@@ -132,7 +133,7 @@ export function screenToCanvas(
  */
 export function renderObject(ctx: CanvasRenderingContext2D, object: CanvasObject): void {
   if (object.type === 'rectangle') {
-    ctx.fillStyle = object.fill
+    ctx.fillStyle = object.color
     ctx.fillRect(object.x, object.y, object.width, object.height)
     
     // Draw border

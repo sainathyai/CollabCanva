@@ -4,23 +4,23 @@ export enum MessageType {
   // Connection
   CONNECT = 'connect',
   DISCONNECT = 'disconnect',
-  
+
   // Auth
   AUTH = 'auth',
   AUTH_SUCCESS = 'auth.success',
   AUTH_ERROR = 'auth.error',
-  
+
   // Object operations (for PR 5)
   OBJECT_CREATE = 'object.create',
   OBJECT_UPDATE = 'object.update',
   OBJECT_DELETE = 'object.delete',
   INITIAL_STATE = 'initialState',
-  
+
   // Presence (for PR 7)
   PRESENCE_JOIN = 'presence.join',
   PRESENCE_CURSOR = 'presence.cursor',
   PRESENCE_LEAVE = 'presence.leave',
-  
+
   // Error
   ERROR = 'error'
 }
@@ -34,6 +34,7 @@ export interface AuthMessage extends BaseMessage {
   type: MessageType.AUTH
   token: string
   displayName?: string
+  projectId?: string
 }
 
 export interface AuthSuccessMessage extends BaseMessage {
@@ -53,17 +54,30 @@ export interface ErrorMessage extends BaseMessage {
 }
 
 // Canvas Object interface
+export type ShapeType = 'rectangle' | 'circle' | 'line' | 'text' | 'triangle' | 'star' | 'polygon' | 'arrow' | 'ellipse' | 'roundedRect' | 'diamond' | 'pentagon'
+
 export interface CanvasObject {
   id: string
-  type: 'rectangle'
+  type: ShapeType
   x: number
   y: number
   width: number
   height: number
-  fill: string
+  rotation: number  // NEW: for Konva rotation
+  color: string     // NEW: renamed from 'fill' for consistency
+  zIndex: number    // NEW: for layer management
+
+  // Text-specific fields
+  text?: string
+  fontSize?: number
+  fontFamily?: string
+
+  // Line-specific fields
+  points?: number[] // [x1, y1, x2, y2]
+
   createdBy: string
   createdAt: string
-  updatedAt: string
+  updatedAt?: string // Optional now
 }
 
 // Object operation messages
@@ -104,6 +118,7 @@ export interface PresenceJoinMessage extends BaseMessage {
 export interface PresenceCursorMessage extends BaseMessage {
   type: MessageType.PRESENCE_CURSOR
   userId: string
+  displayName?: string
   x: number
   y: number
 }
@@ -118,10 +133,10 @@ export interface PresenceStateMessage extends BaseMessage {
   presence: PresenceInfo[]
 }
 
-export type WSMessage = 
-  | AuthMessage 
-  | AuthSuccessMessage 
-  | AuthErrorMessage 
+export type WSMessage =
+  | AuthMessage
+  | AuthSuccessMessage
+  | AuthErrorMessage
   | ErrorMessage
   | ObjectCreateMessage
   | ObjectUpdateMessage

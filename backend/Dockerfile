@@ -1,22 +1,5 @@
-# Build stage
-FROM node:20-alpine AS builder
-
-# Set working directory
-WORKDIR /app
-
-# Copy package files
-COPY package*.json ./
-
-# Install dependencies
-RUN npm ci
-
-# Copy source code
-COPY . .
-
-# Build TypeScript
-RUN npm run build
-
-# Production stage
+# Backend Dockerfile for CollabCanvas
+# Using Node 20 LTS for stability
 FROM node:20-alpine
 
 # Set working directory
@@ -25,26 +8,17 @@ WORKDIR /app
 # Copy package files
 COPY package*.json ./
 
-# Install production dependencies only
-RUN npm ci --production
+# Install dependencies (including devDependencies for TypeScript)
+RUN npm ci
 
-# Copy built files from builder stage
-COPY --from=builder /app/dist ./dist
+# Copy source code
+COPY . .
 
-# Create non-root user
-RUN addgroup -g 1001 -S nodejs && \
-    adduser -S nodejs -u 1001 && \
-    chown -R nodejs:nodejs /app
+# Build TypeScript
+RUN npm run build
 
-# Switch to non-root user
-USER nodejs
-
-# Expose port
+# Expose WebSocket port
 EXPOSE 8080
 
-# Health check
-HEALTHCHECK --interval=30s --timeout=3s --start-period=40s \
-  CMD node -e "require('http').get('http://localhost:8080/health', (r) => {process.exit(r.statusCode === 200 ? 0 : 1)})"
-
-# Start the application
-CMD ["node", "dist/index.js"]
+# Start server
+CMD ["npm", "start"]

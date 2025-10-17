@@ -1,8 +1,10 @@
 import { useState, useEffect } from 'react'
 import { Routes, Route, Navigate } from 'react-router-dom'
 import { onAuthChange } from '../lib/auth'
+import { ProjectProvider } from '../contexts/ProjectContext'
 import Login from '../pages/Login'
 import Canvas from '../pages/Canvas'
+import { Dashboard } from '../pages/Dashboard'
 
 function Router() {
   const [isAuthenticated, setIsAuthenticated] = useState<boolean | null>(null)
@@ -33,25 +35,38 @@ function Router() {
   }
 
   return (
-    <Routes>
-      <Route 
-        path="/login" 
-        element={
-          isAuthenticated ? <Navigate to="/canvas" replace /> : <Login />
-        } 
-      />
-      <Route 
-        path="/canvas" 
-        element={
-          isAuthenticated ? <Canvas /> : <Navigate to="/login" replace />
-        } 
-      />
-      <Route 
-        path="/" 
-        element={<Navigate to={isAuthenticated ? "/canvas" : "/login"} replace />} 
-      />
-      <Route path="*" element={<Navigate to="/login" replace />} />
-    </Routes>
+    <ProjectProvider>
+      <Routes>
+        <Route 
+          path="/login" 
+          element={
+            isAuthenticated ? <Navigate to="/dashboard" replace /> : <Login />
+          } 
+        />
+        <Route 
+          path="/dashboard" 
+          element={
+            isAuthenticated ? <Dashboard /> : <Navigate to="/login" replace />
+          } 
+        />
+        <Route 
+          path="/canvas/:projectId" 
+          element={
+            isAuthenticated ? <Canvas /> : <Navigate to="/login" replace />
+          } 
+        />
+        {/* Legacy route - redirect to dashboard */}
+        <Route 
+          path="/canvas" 
+          element={<Navigate to="/dashboard" replace />} 
+        />
+        <Route 
+          path="/" 
+          element={<Navigate to={isAuthenticated ? "/dashboard" : "/login"} replace />} 
+        />
+        <Route path="*" element={<Navigate to="/login" replace />} />
+      </Routes>
+    </ProjectProvider>
   )
 }
 

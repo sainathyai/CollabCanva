@@ -4,16 +4,12 @@ import type { Presence } from '../types'
 interface CursorOverlayProps {
   presences: Presence[]
   currentUserId?: string
-  canvasOffset?: { left: number; top: number }
 }
 
 /**
  * Renders remote user cursors with name labels
  */
-const CursorOverlay: FC<CursorOverlayProps> = ({ presences, currentUserId, canvasOffset }) => {
-  const offsetLeft = canvasOffset?.left || 0
-  const offsetTop = canvasOffset?.top || 0
-
+const CursorOverlay: FC<CursorOverlayProps> = ({ presences, currentUserId }) => {
   return (
     <div className="cursor-overlay">
       {presences.map((presence) => {
@@ -28,8 +24,8 @@ const CursorOverlay: FC<CursorOverlayProps> = ({ presences, currentUserId, canva
             className="remote-cursor"
             style={{
               position: 'absolute',
-              left: `${presence.x + offsetLeft}px`,
-              top: `${presence.y + offsetTop}px`,
+              left: `${presence.x}px`,
+              top: `${presence.y}px`,
               pointerEvents: 'none',
               zIndex: 1000,
               transition: 'left 0.1s ease-out, top 0.1s ease-out'

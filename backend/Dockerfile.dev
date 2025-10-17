@@ -1,0 +1,22 @@
+# Development Dockerfile for CollabCanvas Backend
+# Using Node 20 LTS for stability
+FROM node:20-alpine
+
+# Set working directory
+WORKDIR /app
+
+# Copy package files
+COPY package*.json ./
+
+# Install all dependencies
+RUN npm ci
+
+# Copy source code
+COPY . .
+
+# Expose WebSocket port
+EXPOSE 8080
+
+# Start development server with hot reload
+CMD ["npm", "run", "dev"]
+
