@@ -3,6 +3,7 @@ import type { ShapeType } from '../types'
 
 interface ToolbarProps {
   isAuthenticated: boolean
+  isViewer?: boolean
   onAddRectangle: () => void
   onAddShape?: (type: ShapeType) => void
 }
@@ -12,9 +13,11 @@ interface ToolbarProps {
  */
 const Toolbar: FC<ToolbarProps> = ({
   isAuthenticated,
+  isViewer = false,
   onAddRectangle,
   onAddShape
 }) => {
+  const isDisabled = !isAuthenticated || isViewer
   return (
     <div className="canvas-toolbar">
       {/* Create Tools */}
@@ -25,8 +28,8 @@ const Toolbar: FC<ToolbarProps> = ({
             <button
               className="tool-btn"
               onClick={onAddRectangle}
-              disabled={!isAuthenticated}
-              title="Rectangle"
+              disabled={isDisabled}
+              title={isViewer ? "Viewers cannot create objects" : "Rectangle"}
             >
               <svg width="32" height="32" viewBox="0 0 32 32">
                 <rect x="6" y="10" width="20" height="12" fill="currentColor" opacity="0.2" stroke="currentColor" strokeWidth="2" rx="2" />
@@ -41,7 +44,7 @@ const Toolbar: FC<ToolbarProps> = ({
                 <button
                   className="tool-btn"
                   onClick={() => onAddShape('circle')}
-                  disabled={!isAuthenticated}
+                  disabled={isDisabled}
                   title="Circle"
                 >
                   <svg width="32" height="32" viewBox="0 0 32 32">
@@ -55,7 +58,7 @@ const Toolbar: FC<ToolbarProps> = ({
                 <button
                   className="tool-btn"
                   onClick={() => onAddShape('text')}
-                  disabled={!isAuthenticated}
+                  disabled={isDisabled}
                   title="Text"
                 >
                   <svg width="32" height="32" viewBox="0 0 32 32">
@@ -69,7 +72,7 @@ const Toolbar: FC<ToolbarProps> = ({
                 <button
                   className="tool-btn"
                   onClick={() => onAddShape('line')}
-                  disabled={!isAuthenticated}
+                  disabled={isDisabled}
                   title="Line"
                 >
                   <svg width="32" height="32" viewBox="0 0 32 32">
@@ -83,7 +86,7 @@ const Toolbar: FC<ToolbarProps> = ({
                 <button
                   className="tool-btn"
                   onClick={() => onAddShape('triangle')}
-                  disabled={!isAuthenticated}
+                  disabled={isDisabled}
                   title="Triangle"
                 >
                   <svg width="32" height="32" viewBox="0 0 32 32">
@@ -97,7 +100,7 @@ const Toolbar: FC<ToolbarProps> = ({
                 <button
                   className="tool-btn"
                   onClick={() => onAddShape('star')}
-                  disabled={!isAuthenticated}
+                  disabled={isDisabled}
                   title="Star"
                 >
                   <svg width="32" height="32" viewBox="0 0 32 32">
@@ -111,7 +114,7 @@ const Toolbar: FC<ToolbarProps> = ({
                 <button
                   className="tool-btn"
                   onClick={() => onAddShape('polygon')}
-                  disabled={!isAuthenticated}
+                  disabled={isDisabled}
                   title="Hexagon"
                 >
                   <svg width="32" height="32" viewBox="0 0 32 32">
@@ -125,7 +128,7 @@ const Toolbar: FC<ToolbarProps> = ({
                 <button
                   className="tool-btn"
                   onClick={() => onAddShape('arrow')}
-                  disabled={!isAuthenticated}
+                  disabled={isDisabled}
                   title="Arrow"
                 >
                   <svg width="32" height="32" viewBox="0 0 32 32">
@@ -140,7 +143,7 @@ const Toolbar: FC<ToolbarProps> = ({
                 <button
                   className="tool-btn"
                   onClick={() => onAddShape('ellipse')}
-                  disabled={!isAuthenticated}
+                  disabled={isDisabled}
                   title="Ellipse"
                 >
                   <svg width="32" height="32" viewBox="0 0 32 32">
@@ -154,7 +157,7 @@ const Toolbar: FC<ToolbarProps> = ({
                 <button
                   className="tool-btn"
                   onClick={() => onAddShape('roundedRect')}
-                  disabled={!isAuthenticated}
+                  disabled={isDisabled}
                   title="Rounded Rectangle"
                 >
                   <svg width="32" height="32" viewBox="0 0 32 32">
@@ -168,7 +171,7 @@ const Toolbar: FC<ToolbarProps> = ({
                 <button
                   className="tool-btn"
                   onClick={() => onAddShape('diamond')}
-                  disabled={!isAuthenticated}
+                  disabled={isDisabled}
                   title="Diamond"
                 >
                   <svg width="32" height="32" viewBox="0 0 32 32">
@@ -182,7 +185,7 @@ const Toolbar: FC<ToolbarProps> = ({
                 <button
                   className="tool-btn"
                   onClick={() => onAddShape('pentagon')}
-                  disabled={!isAuthenticated}
+                  disabled={isDisabled}
                   title="Pentagon"
                 >
                   <svg width="32" height="32" viewBox="0 0 32 32">

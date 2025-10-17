@@ -33,9 +33,12 @@ export async function verifyToken(token: string, displayName?: string): Promise<
   if (env.NODE_ENV === 'development' || !env.FIREBASE_PROJECT_ID) {
     logger.warn('Auth verification in development mode - accepting all tokens')
 
-    // Use provided displayName from frontend or fallback
+    // Use token as a consistent identifier in dev mode (Firebase tokens contain user ID)
+    // This ensures the same user gets the same ID across connections
+    const devUserId = token.includes('|') ? token.split('|')[0] : token.substring(0, 28)
+
     return {
-      uid: `dev-user-${Date.now()}`,
+      uid: devUserId,
       email: 'dev@example.com',
       name: displayName || 'Development User'
     }

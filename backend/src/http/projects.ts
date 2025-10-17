@@ -5,7 +5,7 @@
  */
 
 import type { IncomingMessage, ServerResponse } from 'http'
-import { createProject, getProject, getUserProjects, updateProject, deleteProject } from '../services/projectService.js'
+import { createProject, getProject, getUserProjects, updateProject, deleteProject, addCollaborator, removeCollaborator, getUserRole, type UserRole } from '../services/projectService.js'
 import { logger } from '../utils/logger.js'
 
 /**
@@ -86,7 +86,9 @@ export async function projectsHandler(req: IncomingMessage, res: ServerResponse)
         return
       }
 
-      const projects = await getUserProjects(userId)
+      // Get user email from header or query param for collaborator check
+      const userEmail = url.searchParams.get('userEmail') || req.headers['x-user-email'] as string
+      const projects = await getUserProjects(userId, userEmail)
       sendJSON(res, 200, { projects })
       return
     }
@@ -114,6 +116,19 @@ export async function projectsHandler(req: IncomingMessage, res: ServerResponse)
 
       if (!userId) {
         sendJSON(res, 401, { error: 'Unauthorized' })
+        return
+      }
+
+      // Check if user is the owner
+      const existingProject = await getProject(projectId)
+      if (!existingProject) {
+        sendJSON(res, 404, { error: 'Project not found' })
+        return
+      }
+
+      if (existingProject.ownerId !== userId) {
+        logger.warn('Non-owner attempted to update project', { userId, projectId, ownerId: existingProject.ownerId })
+        sendJSON(res, 403, { error: 'Only project owners can edit project details' })
         return
       }
 
@@ -147,6 +162,19 @@ export async function projectsHandler(req: IncomingMessage, res: ServerResponse)
         return
       }
 
+      // Check if user is the owner
+      const existingProject = await getProject(projectId)
+      if (!existingProject) {
+        sendJSON(res, 404, { error: 'Project not found' })
+        return
+      }
+
+      if (existingProject.ownerId !== userId) {
+        logger.warn('Non-owner attempted to delete project', { userId, projectId, ownerId: existingProject.ownerId })
+        sendJSON(res, 403, { error: 'Only project owners can delete projects' })
+        return
+      }
+
       const success = await deleteProject(projectId)
 
       if (!success) {
@@ -156,6 +184,86 @@ export async function projectsHandler(req: IncomingMessage, res: ServerResponse)
 
       logger.info(`Project deleted via API: ${projectId}`)
       sendJSON(res, 204, null)
+      return
+    }
+
+    // POST /api/projects/:id/collaborators - Add collaborator
+    const addCollabMatch = pathname.match(/^\/api\/projects\/([^\/]+)\/collaborators$/)
+    if (addCollabMatch && method === 'POST') {
+      const projectId = addCollabMatch[1]
+      const userId = getUserId(req)
+
+      if (!userId) {
+        sendJSON(res, 401, { error: 'Unauthorized' })
+        return
+      }
+
+      const body = await parseBody(req)
+      const { email, role } = body
+
+      if (!email || typeof email !== 'string') {
+        sendJSON(res, 400, { error: 'Collaborator email is required' })
+        return
+      }
+
+      // Validate role
+      const validRole: UserRole = (role === 'viewer' || role === 'editor') ? role : 'editor'
+
+      // Check if requester is the project owner
+      const project = await getProject(projectId)
+      if (!project) {
+        sendJSON(res, 404, { error: 'Project not found' })
+        return
+      }
+
+      if (project.ownerId !== userId) {
+        sendJSON(res, 403, { error: 'Only project owner can add collaborators' })
+        return
+      }
+
+      const updatedProject = await addCollaborator(projectId, email, validRole)
+      if (!updatedProject) {
+        sendJSON(res, 500, { error: 'Failed to add collaborator' })
+        return
+      }
+
+      logger.info(`Collaborator added via API: ${email} to ${projectId}`)
+      sendJSON(res, 200, updatedProject)
+      return
+    }
+
+    // DELETE /api/projects/:id/collaborators/:email - Remove collaborator
+    const removeCollabMatch = pathname.match(/^\/api\/projects\/([^\/]+)\/collaborators\/([^\/]+)$/)
+    if (removeCollabMatch && method === 'DELETE') {
+      const projectId = removeCollabMatch[1]
+      const collaboratorEmail = decodeURIComponent(removeCollabMatch[2])
+      const userId = getUserId(req)
+
+      if (!userId) {
+        sendJSON(res, 401, { error: 'Unauthorized' })
+        return
+      }
+
+      // Check if requester is the project owner
+      const project = await getProject(projectId)
+      if (!project) {
+        sendJSON(res, 404, { error: 'Project not found' })
+        return
+      }
+
+      if (project.ownerId !== userId) {
+        sendJSON(res, 403, { error: 'Only project owner can remove collaborators' })
+        return
+      }
+
+      const updatedProject = await removeCollaborator(projectId, collaboratorEmail)
+      if (!updatedProject) {
+        sendJSON(res, 500, { error: 'Failed to remove collaborator' })
+        return
+      }
+
+      logger.info(`Collaborator removed via API: ${collaboratorEmail} from ${projectId}`)
+      sendJSON(res, 200, updatedProject)
       return
     }
 

@@ -1,6 +1,8 @@
 import { useEffect, useState, useRef, useCallback } from 'react'
+import { useParams, useNavigate } from 'react-router-dom'
 import { getCurrentUser } from '../lib/auth'
 import { wsClient, MessageType, type WSMessage } from '../lib/ws'
+import { useProject } from '../contexts/ProjectContext'
 import type { CanvasObject, Presence } from '../types'
 import { getRandomColor } from '../lib/canvas'
 import { KonvaCanvas } from '../components/KonvaCanvas'
@@ -18,20 +20,46 @@ const getUserColor = (userId: string): string => {
 }
 
 function Canvas() {
+  const { projectId } = useParams<{ projectId: string }>()
+  const navigate = useNavigate()
+  const { switchProject, currentProject } = useProject()
   const [objects, setObjects] = useState<CanvasObject[]>([])
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
   const [isConnected, setIsConnected] = useState(false)
   const [isAuthenticated, setIsAuthenticated] = useState(false)
 
+  // Determine user's role in the current project
+  const user = getCurrentUser()
+  const getUserRole = useCallback((): 'owner' | 'editor' | 'viewer' | null => {
+    if (!currentProject || !user) return null
+
+    // Check if owner
+    if (currentProject.ownerId === user.uid) return 'owner'
+
+    // Check if collaborator
+    if (user.email && currentProject.collaborators) {
+      const collaborator = currentProject.collaborators.find(c => c.email === user.email)
+      if (collaborator) return collaborator.role
+    }
+
+    return null
+  }, [currentProject, user])
+
+  const userRole = getUserRole()
+  const isViewer = userRole === 'viewer'
+
   // Update global connection state for Header
   useEffect(() => {
     if ((window as any).updateConnectionState) {
-      (window as any).updateConnectionState({ isConnected, isAuthenticated })
+      (window as any).updateConnectionState({
+        isConnected,
+        isAuthenticated,
+        projectName: currentProject?.name
+      })
     }
-  }, [isConnected, isAuthenticated])
+  }, [isConnected, isAuthenticated, currentProject])
   const [, setHasReceivedInitialState] = useState(false)
   const [presences, setPresences] = useState<Map<string, Presence>>(new Map())
-  const [canvasOffset, setCanvasOffset] = useState({ left: 0, top: 0 })
   const [stageSize, setStageSize] = useState({ width: 800, height: 600 })
   const [clipboard, setClipboard] = useState<CanvasObject[]>([])
   const [scale, setScale] = useState(1)
@@ -41,11 +69,26 @@ function Canvas() {
   const [showGrid, setShowGrid] = useState(true)
 
   const containerRef = useRef<HTMLDivElement>(null)
-  const user = getCurrentUser()
   const lastCursorUpdate = useRef<number>(0)
 
-  // Initialize WebSocket connection
+  // Load project details
   useEffect(() => {
+    if (!projectId) {
+      navigate('/dashboard')
+      return
+    }
+
+    switchProject(projectId).catch((error) => {
+      console.error('Failed to load project:', error)
+      // Redirect to dashboard if project not found
+      navigate('/dashboard')
+    })
+  }, [projectId, switchProject, navigate])
+
+  // Initialize WebSocket connection (re-init when project changes)
+  useEffect(() => {
+    if (!projectId) return
+
     const connectWebSocket = async () => {
       try {
         await wsClient.connect()
@@ -58,7 +101,8 @@ function Canvas() {
           try {
             const token = await user.getIdToken()
             console.log('🔑 Sending authentication...', user.displayName || user.email)
-            wsClient.authenticate(token, user.displayName || undefined)
+            console.log('📁 Project ID:', projectId)
+            wsClient.authenticate(token, user.displayName || undefined, projectId)
           } catch (error) {
             console.error('❌ Failed to authenticate:', error)
           }
@@ -76,12 +120,12 @@ function Canvas() {
       handleWebSocketMessage(message)
     })
 
-    // Cleanup on unmount
+    // Cleanup on unmount or when project changes
     return () => {
       unsubscribe()
       wsClient.disconnect()
     }
-  }, [user])
+  }, [user, projectId])
 
   // Handle incoming WebSocket messages
   const handleWebSocketMessage = (message: WSMessage) => {
@@ -160,7 +204,19 @@ function Canvas() {
             const updated = new Map(prev)
             const existing = updated.get(message.userId)
             if (existing) {
+              // Update existing presence
               updated.set(message.userId, { ...existing, x: message.x, y: message.y, lastSeen: Date.now() })
+            } else if ('displayName' in message) {
+              // Create presence if it doesn't exist yet (race condition with PRESENCE_JOIN)
+              updated.set(message.userId, {
+                userId: message.userId,
+                displayName: message.displayName || 'Anonymous',
+                x: message.x,
+                y: message.y,
+                lastSeen: Date.now(),
+                color: getUserColor(message.userId)
+              })
+              console.log('👤 Created presence from cursor update:', message.displayName)
             }
             return updated
           })
@@ -193,12 +249,6 @@ function Canvas() {
       setStageSize({
         width: container.offsetWidth,
         height: container.offsetHeight
-      })
-
-      const containerRect = container.getBoundingClientRect()
-      setCanvasOffset({
-        left: containerRect.left,
-        top: containerRect.top
       })
     }
 
@@ -370,6 +420,7 @@ function Canvas() {
     if (!container) return
 
     const rect = container.getBoundingClientRect()
+    // Get cursor position relative to the container
     const x = e.clientX - rect.left
     const y = e.clientY - rect.top
 
@@ -967,6 +1018,7 @@ function Canvas() {
     <div className="canvas-page">
       <TopToolbar
         isAuthenticated={isAuthenticated}
+        isViewer={isViewer}
         objectCount={objects.length}
         selectedCount={selectedIds.size}
         hasSelection={selectedIds.size > 0}
@@ -987,6 +1039,7 @@ function Canvas() {
 
       <Toolbar
         isAuthenticated={isAuthenticated}
+        isViewer={isViewer}
         onAddRectangle={handleAddRectangle}
         onAddShape={handleAddShape}
       />
@@ -999,8 +1052,8 @@ function Canvas() {
         <KonvaCanvas
           objects={objects}
           selectedIds={selectedIds}
-          onSelect={handleSelect}
-          onTransform={handleTransform}
+          onSelect={isViewer ? () => { } : handleSelect}
+          onTransform={isViewer ? () => { } : handleTransform}
           stageWidth={stageSize.width}
           stageHeight={stageSize.height}
           scale={scale}
@@ -1008,11 +1061,11 @@ function Canvas() {
           isPanning={isPanning}
           onPositionChange={setPosition}
           showGrid={showGrid}
+          isViewer={isViewer}
         />
         <CursorOverlay
           presences={Array.from(presences.values())}
           currentUserId={user?.uid}
-          canvasOffset={canvasOffset}
         />
 
         {/* AI Chat Component */}

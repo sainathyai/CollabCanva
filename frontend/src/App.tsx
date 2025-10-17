@@ -5,7 +5,11 @@ import Router from './routes/Router'
 
 function App() {
   // Connection state will be passed from Canvas component via global callback
-  const [connectionState, setConnectionState] = useState({ isConnected: false, isAuthenticated: false })
+  const [connectionState, setConnectionState] = useState({ 
+    isConnected: false, 
+    isAuthenticated: false,
+    projectName: undefined as string | undefined
+  })
 
   // Make connection state updater available globally
   useEffect(() => {
@@ -18,7 +22,11 @@ function App() {
   return (
     <BrowserRouter>
       <div className="app">
-        <Header isConnected={connectionState.isConnected} isAuthenticated={connectionState.isAuthenticated} />
+        <Header 
+          isConnected={connectionState.isConnected} 
+          isAuthenticated={connectionState.isAuthenticated}
+          projectName={connectionState.projectName}
+        />
         <Router />
       </div>
     </BrowserRouter>

@@ -13,12 +13,16 @@ import { verifyToken, UserClaims } from '../auth/verifyToken.js'
 import { logger } from '../utils/logger.js'
 import * as canvasState from '../state/canvasState.js'
 import * as presenceState from '../state/presenceState.js'
+import { getProject, getUserRole, type UserRole } from '../services/projectService.js'
 
 // Store authenticated users (in-memory for MVP)
 export const connectedClients = new Map<WebSocket, UserClaims>()
 
 // Store current project ID for each connection
 export const clientProjects = new Map<WebSocket, string>()
+
+// Store user roles for each connection (for quick permission checks)
+export const clientRoles = new Map<WebSocket, UserRole>()
 
 /**
  * Handle incoming WebSocket messages
@@ -68,6 +72,83 @@ async function handleAuth(ws: WebSocket, message: AuthMessage) {
     // Store authenticated user
     connectedClients.set(ws, userClaims)
 
+    // Determine projectId (default for backward compatibility). Prefer client-provided projectId.
+    const projectId = message.projectId || canvasState.DEFAULT_PROJECT_ID
+
+    // Check if user has access to this project and get their role
+    const project = await getProject(projectId)
+    let userRole: UserRole | null = null
+
+    if (project && project.projectId !== canvasState.DEFAULT_PROJECT_ID) {
+      logger.debug('Checking user role', {
+        userId: userClaims.uid,
+        userEmail: userClaims.email,
+        projectId,
+        projectOwnerId: project.ownerId,
+        collaborators: project.collaborators
+      })
+
+      userRole = getUserRole(project, userClaims.uid, userClaims.email)
+
+      logger.debug('getUserRole result', {
+        userRole,
+        userId: userClaims.uid,
+        userEmail: userClaims.email
+      })
+
+      // In development, grant owner access for backward compatibility with old projects
+      const isDev = process.env.NODE_ENV === 'development'
+      const devEmailMatch = isDev && userClaims.email === 'dev@example.com'
+      if (!userRole && devEmailMatch) {
+        logger.debug('Granting dev owner access for backward compatibility')
+        userRole = 'owner'
+      }
+
+      if (!userRole) {
+        logger.warn('User attempted to access unauthorized project', {
+          userId: userClaims.uid,
+          userEmail: userClaims.email,
+          projectId,
+          projectOwnerId: project.ownerId
+        })
+        ws.send(JSON.stringify({
+          type: MessageType.AUTH_ERROR,
+          error: 'You do not have access to this project',
+          timestamp: new Date().toISOString()
+        }))
+        ws.close()
+        return
+      }
+
+      // Store user role for permission checks
+      clientRoles.set(ws, userRole)
+
+      logger.info('User authorized for project', {
+        userId: userClaims.uid,
+        userEmail: userClaims.email,
+        projectId,
+        role: userRole
+      })
+    } else if (project) {
+      // Default project - everyone is editor
+      clientRoles.set(ws, 'editor')
+    }
+
+    // Check if this is a re-authentication with different project
+    const previousProjectId = clientProjects.get(ws)
+    const isProjectChange = previousProjectId && previousProjectId !== projectId
+
+    // Update project mapping
+    clientProjects.set(ws, projectId)
+
+    if (isProjectChange) {
+      logger.info('Client switched projects', {
+        userId: userClaims.uid,
+        fromProject: previousProjectId,
+        toProject: projectId
+      })
+    }
+
     // Send success response
     ws.send(JSON.stringify({
       type: MessageType.AUTH_SUCCESS,
@@ -76,10 +157,12 @@ async function handleAuth(ws: WebSocket, message: AuthMessage) {
       timestamp: new Date().toISOString()
     }))
 
-    // Get projectId (default for backward compatibility)
-    // In PR14, frontend will send this; for now use default
-    const projectId = canvasState.DEFAULT_PROJECT_ID
-    clientProjects.set(ws, projectId)
+    // Load objects from database if not already in memory
+    const objectsInMemory = canvasState.getAllObjects(projectId).length
+    if (objectsInMemory === 0) {
+      logger.info('Project not in memory, loading from database', { projectId })
+      await canvasState.loadFromDatabase(projectId)
+    }
 
     // SECURITY FIX: Send initial canvas state ONLY after authentication
     const initialObjects = canvasState.getAllObjects(projectId)
@@ -111,18 +194,24 @@ async function handleAuth(ws: WebSocket, message: AuthMessage) {
       timestamp: new Date().toISOString()
     }))
 
-    // Broadcast presence join to all other clients
+    // Broadcast presence join to all other clients in the same project
     const joinMessage = JSON.stringify({
       type: MessageType.PRESENCE_JOIN,
       presence,
       timestamp: new Date().toISOString()
     })
-    broadcastToAll(joinMessage, ws)
+    broadcastToProject(projectId, joinMessage, ws)
 
     logger.info('User authenticated and initial state sent', {
       uid: userClaims.uid,
+      projectId,
       objectCount: initialObjects.length,
-      presenceCount: allPresence.length
+      presenceCount: allPresence.length,
+      totalConnectedClients: connectedClients.size,
+      projectClients: Array.from(clientProjects.values()).reduce((acc, pid) => {
+        acc[pid] = (acc[pid] || 0) + 1;
+        return acc;
+      }, {} as Record<string, number>)
     })
   } catch (error) {
     logger.error('Authentication failed', { error })
@@ -146,6 +235,15 @@ function handleObjectCreate(ws: WebSocket, message: ObjectCreateMessage) {
       return
     }
 
+    // Check permission - viewers cannot create
+    const role = clientRoles.get(ws)
+    logger.debug('Object create permission check', { role, userId: user.uid })
+    if (role === 'viewer') {
+      logger.warn('Viewer attempted to create object', { userId: user.uid, role })
+      sendError(ws, 'Viewers cannot create objects')
+      return
+    }
+
     const projectId = clientProjects.get(ws) || canvasState.DEFAULT_PROJECT_ID
 
     // Create object in state for this project
@@ -159,7 +257,15 @@ function handleObjectCreate(ws: WebSocket, message: ObjectCreateMessage) {
     })
 
     broadcastToProject(projectId, broadcastMessage)
-    logger.info('Object created and broadcasted', { id: object.id, projectId, userId: user.uid })
+    logger.info('Object created and broadcasted', {
+      id: object.id,
+      projectId,
+      userId: user.uid,
+      connectedClientsCount: connectedClients.size,
+      clientsInProject: Array.from(clientProjects.entries())
+        .filter(([_, pid]) => pid === projectId)
+        .length
+    })
   } catch (error) {
     logger.error('Error creating object', { error })
     sendError(ws, 'Failed to create object')
@@ -174,6 +280,13 @@ function handleObjectUpdate(ws: WebSocket, message: ObjectUpdateMessage) {
     const user = connectedClients.get(ws)
     if (!user) {
       sendError(ws, 'Not authenticated')
+      return
+    }
+
+    // Check permission - viewers cannot update
+    const role = clientRoles.get(ws)
+    if (role === 'viewer') {
+      sendError(ws, 'Viewers cannot edit objects')
       return
     }
 
@@ -208,6 +321,13 @@ function handleObjectDelete(ws: WebSocket, message: ObjectDeleteMessage) {
       return
     }
 
+    // Check permission - viewers cannot delete
+    const role = clientRoles.get(ws)
+    if (role === 'viewer') {
+      sendError(ws, 'Viewers cannot delete objects')
+      return
+    }
+
     const projectId = clientProjects.get(ws) || canvasState.DEFAULT_PROJECT_ID
 
     // Delete object from state for this project
@@ -239,23 +359,32 @@ function handlePresenceCursor(ws: WebSocket, message: PresenceCursorMessage) {
   try {
     const user = connectedClients.get(ws)
     if (!user) {
+      logger.warn('⚠️  Presence cursor from unauthenticated client')
       sendError(ws, 'Not authenticated')
       return
     }
 
+    const projectId = clientProjects.get(ws) || canvasState.DEFAULT_PROJECT_ID
+
     // Update cursor position in presence state
     presenceState.updateCursor(user.uid, message.x, message.y)
 
-    // Broadcast cursor position to all other clients
+    // Broadcast cursor position to all other clients in the same project
     const broadcastMessage = JSON.stringify({
       type: MessageType.PRESENCE_CURSOR,
       userId: user.uid,
+      displayName: user.name || 'Anonymous',
       x: message.x,
       y: message.y,
       timestamp: new Date().toISOString()
     })
 
-    broadcast(ws, broadcastMessage)
+    const clientsInProject = Array.from(clientProjects.entries())
+      .filter(([_, pid]) => pid === projectId && _ !== ws)
+
+    logger.debug(`📍 Broadcasting cursor for ${user.name} in project ${projectId} to ${clientsInProject.length} clients`)
+
+    broadcastToProject(projectId, broadcastMessage, ws)
   } catch (error) {
     logger.error('Error updating presence cursor', { error })
   }
@@ -284,16 +413,20 @@ export function handleDisconnect(ws: WebSocket) {
     // Remove from presence
     presenceState.removePresence(user.uid)
 
-    // Broadcast presence leave to all other clients
+    // Get project ID before removing from map
+    const projectId = clientProjects.get(ws) || canvasState.DEFAULT_PROJECT_ID
+
+    // Broadcast presence leave to all other clients in the same project
     const leaveMessage = JSON.stringify({
       type: MessageType.PRESENCE_LEAVE,
       userId: user.uid,
       timestamp: new Date().toISOString()
     })
-    broadcastToAll(leaveMessage)
+    broadcastToProject(projectId, leaveMessage, ws)
 
     connectedClients.delete(ws)
     clientProjects.delete(ws)
+    clientRoles.delete(ws)
   }
 }
 

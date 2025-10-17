@@ -15,6 +15,7 @@ interface KonvaCanvasProps {
   isPanning: boolean;
   onPositionChange: (position: { x: number; y: number }) => void;
   showGrid?: boolean;
+  isViewer?: boolean;
 }
 
 export function KonvaCanvas({

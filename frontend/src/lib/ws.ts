@@ -172,12 +172,16 @@ class WebSocketClient {
 
   /**
    * Authenticate with the server
+   * @param token Firebase auth token
+   * @param displayName User display name
+   * @param projectId Optional project ID for multi-project support
    */
-  authenticate(token: string, displayName?: string): void {
+  authenticate(token: string, displayName?: string, projectId?: string): void {
     this.send({
       type: MessageType.AUTH,
       token,
       displayName,
+      projectId: projectId || 'default-project', // Default for backward compatibility
       timestamp: new Date().toISOString()
     })
   }

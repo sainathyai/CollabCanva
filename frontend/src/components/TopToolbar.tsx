@@ -2,6 +2,7 @@ import { FC, useState } from 'react'
 
 interface TopToolbarProps {
   isAuthenticated: boolean
+  isViewer?: boolean
   objectCount: number
   selectedCount: number
   hasSelection: boolean
@@ -25,6 +26,7 @@ interface TopToolbarProps {
  */
 const TopToolbar: FC<TopToolbarProps> = ({
   isAuthenticated,
+  isViewer = false,
   objectCount,
   selectedCount,
   hasSelection,
@@ -42,6 +44,7 @@ const TopToolbar: FC<TopToolbarProps> = ({
   onTogglePan,
   onFitAll
 }) => {
+  const isDisabled = !isAuthenticated || isViewer
   const [randomCount, setRandomCount] = useState(5)
 
   const handleCreateRandom = () => {
@@ -59,8 +62,8 @@ const TopToolbar: FC<TopToolbarProps> = ({
             <button
               className="top-tool-btn"
               onClick={onDuplicate}
-              disabled={selectedCount === 0 || !isAuthenticated}
-              title="Duplicate (Ctrl+D)"
+              disabled={selectedCount === 0 || isDisabled}
+              title={isViewer ? "Viewers cannot edit" : "Duplicate (Ctrl+D)"}
             >
               <svg width="35" height="35" viewBox="0 0 32 32">
                 <rect x="8" y="8" width="12" height="12" fill="none" stroke="currentColor" strokeWidth="2" rx="1" />
@@ -74,8 +77,8 @@ const TopToolbar: FC<TopToolbarProps> = ({
             <button
               className="top-tool-btn"
               onClick={onDeleteSelected}
-              disabled={!hasSelection || !isAuthenticated}
-              title="Delete (Del)"
+              disabled={!hasSelection || isDisabled}
+              title={isViewer ? "Viewers cannot delete" : "Delete (Del)"}
             >
               <svg width="35" height="35" viewBox="0 0 32 32">
                 <path d="M12 12 L20 20 M20 12 L12 20" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
@@ -86,11 +89,11 @@ const TopToolbar: FC<TopToolbarProps> = ({
           </div>
 
           <div className="top-tool-item">
-            <div className="top-tool-btn color-tool" title="Change Color">
+            <div className="top-tool-btn color-tool" title={isViewer ? "Viewers cannot edit colors" : "Change Color"}>
               <input
                 type="color"
                 onChange={(e) => onColorChange(e.target.value)}
-                disabled={selectedCount === 0}
+                disabled={selectedCount === 0 || isDisabled}
                 className="color-input"
                 id="top-color-picker"
               />
@@ -213,14 +216,14 @@ const TopToolbar: FC<TopToolbarProps> = ({
             value={randomCount}
             onChange={(e) => setRandomCount(Number(e.target.value))}
             className="random-count-input"
-            disabled={!isAuthenticated}
+            disabled={isDisabled}
             title="Number of random objects (1-100)"
           />
           <button
             className="btn-create-random"
             onClick={handleCreateRandom}
-            disabled={!isAuthenticated || randomCount < 1 || randomCount > 100}
-            title="Generate random objects"
+            disabled={isDisabled || randomCount < 1 || randomCount > 100}
+            title={isViewer ? "Viewers cannot create objects" : "Generate random objects"}
           >
             Generate
           </button>

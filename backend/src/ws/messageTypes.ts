@@ -34,6 +34,7 @@ export interface AuthMessage extends BaseMessage {
   type: MessageType.AUTH
   token: string
   displayName?: string
+  projectId?: string
 }
 
 export interface AuthSuccessMessage extends BaseMessage {
@@ -117,6 +118,7 @@ export interface PresenceJoinMessage extends BaseMessage {
 export interface PresenceCursorMessage extends BaseMessage {
   type: MessageType.PRESENCE_CURSOR
   userId: string
+  displayName?: string
   x: number
   y: number
 }
