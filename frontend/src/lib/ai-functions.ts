@@ -210,6 +210,22 @@ export const canvasFunctions = [
       },
       required: ['selector']
     }
+  },
+  {
+    name: 'delete_random_objects',
+    description: 'Randomly select and delete a specified number of objects from the canvas. Use this when user wants to reduce clutter or randomly remove objects.',
+    parameters: {
+      type: 'object',
+      properties: {
+        count: {
+          type: 'number',
+          description: 'Number of random objects to delete',
+          minimum: 1,
+          maximum: 100
+        }
+      },
+      required: ['count']
+    }
   }
 ];
 
@@ -264,6 +280,10 @@ export type DuplicateObjectsParams = {
   offset?: number;
 };
 
+export type DeleteRandomObjectsParams = {
+  count: number;
+};
+
 export type AIFunctionName =
   | 'generate_random_objects'
   | 'create_shape'
@@ -273,7 +293,8 @@ export type AIFunctionName =
   | 'rotate_objects'
   | 'delete_objects'
   | 'arrange_objects'
-  | 'duplicate_objects';
+  | 'duplicate_objects'
+  | 'delete_random_objects';
 
 export type AIFunctionParams =
   | GenerateRandomObjectsParams
@@ -284,5 +305,6 @@ export type AIFunctionParams =
   | RotateObjectsParams
   | DeleteObjectsParams
   | ArrangeObjectsParams
-  | DuplicateObjectsParams;
+  | DuplicateObjectsParams
+  | DeleteRandomObjectsParams;
 

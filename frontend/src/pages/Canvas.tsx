@@ -798,7 +798,7 @@ function Canvas() {
               const cols = Math.ceil(Math.sqrt(targetObjects.length));
               const avgWidth = targetObjects.reduce((sum, obj) => sum + (obj.width || 100), 0) / targetObjects.length;
               const avgHeight = targetObjects.reduce((sum, obj) => sum + (obj.height || 100), 0) / targetObjects.length;
-              
+
               targetObjects.forEach((obj, index) => {
                 const row = Math.floor(index / cols);
                 const col = index % cols;
@@ -901,6 +901,32 @@ function Canvas() {
             }
           });
           console.log(`Duplicated ${targetObjects.length} object(s) ${count} time(s)`);
+          break;
+        }
+
+        case 'delete_random_objects': {
+          const { count } = parameters as any;
+          
+          if (objects.length === 0) {
+            console.log('No objects to delete');
+            return;
+          }
+
+          // Calculate how many objects to actually delete
+          const deleteCount = Math.min(count, objects.length);
+          
+          // Create a shuffled copy of all objects
+          const shuffledObjects = [...objects].sort(() => Math.random() - 0.5);
+          
+          // Take the first N objects from shuffled array
+          const objectsToDelete = shuffledObjects.slice(0, deleteCount);
+          
+          // Delete each selected object
+          objectsToDelete.forEach(obj => {
+            wsClient.deleteObject(obj.id);
+          });
+          
+          console.log(`✅ Randomly deleted ${deleteCount} object(s) from canvas`);
           break;
         }
 
