@@ -556,7 +556,7 @@ function Canvas() {
       const oldScale = scale
 
       const containerRect = container.getBoundingClientRect()
-      
+
       // Mouse position in screen space (relative to container)
       const mouseX = e.clientX - containerRect.left
       const mouseY = e.clientY - containerRect.top
@@ -784,7 +784,10 @@ function Canvas() {
             targetObjects = objects.filter(obj => selectedIds.has(obj.id));
           }
 
-          if (targetObjects.length === 0) return;
+          if (targetObjects.length === 0) {
+            console.log('No objects to arrange');
+            return;
+          }
 
           // Calculate center point
           const centerX = stageSize.width / 2;
@@ -793,60 +796,60 @@ function Canvas() {
           switch (arrangement) {
             case 'grid': {
               const cols = Math.ceil(Math.sqrt(targetObjects.length));
+              const avgWidth = targetObjects.reduce((sum, obj) => sum + (obj.width || 100), 0) / targetObjects.length;
+              const avgHeight = targetObjects.reduce((sum, obj) => sum + (obj.height || 100), 0) / targetObjects.length;
+              
               targetObjects.forEach((obj, index) => {
                 const row = Math.floor(index / cols);
                 const col = index % cols;
                 wsClient.updateObject({
                   id: obj.id,
-                  x: 100 + col * (obj.width + spacing),
-                  y: 100 + row * (obj.height + spacing),
-                  updatedAt: new Date().toISOString()
+                  x: 100 + col * (avgWidth + spacing),
+                  y: 100 + row * (avgHeight + spacing)
                 });
               });
               break;
             }
             case 'circle': {
-              const radius = 150;
+              const radius = 200;
               targetObjects.forEach((obj, index) => {
                 const angle = (2 * Math.PI * index) / targetObjects.length;
                 wsClient.updateObject({
                   id: obj.id,
                   x: centerX + radius * Math.cos(angle),
-                  y: centerY + radius * Math.sin(angle),
-                  updatedAt: new Date().toISOString()
+                  y: centerY + radius * Math.sin(angle)
                 });
               });
               break;
             }
             case 'line-horizontal': {
+              const avgWidth = targetObjects.reduce((sum, obj) => sum + (obj.width || 100), 0) / targetObjects.length;
               targetObjects.forEach((obj, index) => {
                 wsClient.updateObject({
                   id: obj.id,
-                  x: 100 + index * (obj.width + spacing),
-                  y: centerY,
-                  updatedAt: new Date().toISOString()
+                  x: 100 + index * (avgWidth + spacing),
+                  y: centerY
                 });
               });
               break;
             }
             case 'line-vertical': {
+              const avgHeight = targetObjects.reduce((sum, obj) => sum + (obj.height || 100), 0) / targetObjects.length;
               targetObjects.forEach((obj, index) => {
                 wsClient.updateObject({
                   id: obj.id,
                   x: centerX,
-                  y: 100 + index * (obj.height + spacing),
-                  updatedAt: new Date().toISOString()
+                  y: 100 + index * (avgHeight + spacing)
                 });
               });
               break;
             }
             case 'align-left': {
-              const leftmost = Math.min(...targetObjects.map(o => o.x));
+              const leftmost = Math.min(...targetObjects.map(o => o.x - (o.width || 100) / 2));
               targetObjects.forEach(obj => {
                 wsClient.updateObject({
                   id: obj.id,
-                  x: leftmost,
-                  updatedAt: new Date().toISOString()
+                  x: leftmost
                 });
               });
               break;
@@ -855,25 +858,23 @@ function Canvas() {
               targetObjects.forEach(obj => {
                 wsClient.updateObject({
                   id: obj.id,
-                  x: centerX - obj.width / 2,
-                  updatedAt: new Date().toISOString()
+                  x: centerX
                 });
               });
               break;
             }
             case 'align-right': {
-              const rightmost = Math.max(...targetObjects.map(o => o.x + o.width));
+              const rightmost = Math.max(...targetObjects.map(o => o.x + (o.width || 100) / 2));
               targetObjects.forEach(obj => {
                 wsClient.updateObject({
                   id: obj.id,
-                  x: rightmost - obj.width,
-                  updatedAt: new Date().toISOString()
+                  x: rightmost
                 });
               });
               break;
             }
           }
-          console.log(`Arranged ${targetObjects.length} object(s) in ${arrangement}`);
+          console.log(`✅ Arranged ${targetObjects.length} object(s) in ${arrangement} pattern`);
           break;
         }
 
