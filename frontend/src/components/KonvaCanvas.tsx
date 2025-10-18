@@ -1,4 +1,4 @@
-import { useRef, useEffect, useState, useMemo, memo } from 'react';
+import { useRef, useEffect, useState, useMemo } from 'react';
 import { Stage, Layer, Rect, Circle, Line, Text, RegularPolygon, Star, Arrow, Ellipse } from 'react-konva';
 import Konva from 'konva';
 import { CanvasObject } from '../types';
@@ -19,39 +19,7 @@ interface KonvaCanvasProps {
   isViewer?: boolean;
 }
 
-// 🚀 OPTIMIZATION: Memoized shape components to prevent unnecessary re-renders
-// Only re-render when the specific object properties change
-const MemoizedRect = memo(Rect, (prevProps, nextProps) => {
-  return (
-    prevProps.x === nextProps.x &&
-    prevProps.y === nextProps.y &&
-    prevProps.width === nextProps.width &&
-    prevProps.height === nextProps.height &&
-    prevProps.rotation === nextProps.rotation &&
-    prevProps.fill === nextProps.fill
-  );
-});
-
-const MemoizedCircle = memo(Circle, (prevProps, nextProps) => {
-  return (
-    prevProps.x === nextProps.x &&
-    prevProps.y === nextProps.y &&
-    prevProps.radius === nextProps.radius &&
-    prevProps.rotation === nextProps.rotation &&
-    prevProps.fill === nextProps.fill
-  );
-});
-
-const MemoizedEllipse = memo(Ellipse, (prevProps, nextProps) => {
-  return (
-    prevProps.x === nextProps.x &&
-    prevProps.y === nextProps.y &&
-    prevProps.radiusX === nextProps.radiusX &&
-    prevProps.radiusY === nextProps.radiusY &&
-    prevProps.rotation === nextProps.rotation &&
-    prevProps.fill === nextProps.fill
-  );
-});
+// Note: Memoization removed to ensure event handlers work correctly with multi-select drag
 
 export function KonvaCanvas({
   objects,
@@ -482,7 +450,7 @@ export function KonvaCanvas({
             switch (obj.type) {
               case 'rectangle':
                 return (
-                  <MemoizedRect
+                  <Rect
                     key={obj.id}
                     id={obj.id}
                     x={obj.x}
@@ -504,7 +472,7 @@ export function KonvaCanvas({
 
               case 'circle':
                 return (
-                  <MemoizedCircle
+                  <Circle
                     key={obj.id}
                     id={obj.id}
                     x={obj.x}
@@ -660,7 +628,7 @@ export function KonvaCanvas({
 
               case 'ellipse':
                 return (
-                  <MemoizedEllipse
+                  <Ellipse
                     key={obj.id}
                     id={obj.id}
                     x={obj.x}
