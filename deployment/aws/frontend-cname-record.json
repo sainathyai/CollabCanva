@@ -1,0 +1,17 @@
+{
+  "Changes": [
+    {
+      "Action": "CREATE",
+      "ResourceRecordSet": {
+        "Name": "collabcanva.sainathyai.com",
+        "Type": "CNAME",
+        "TTL": 300,
+        "ResourceRecords": [
+          {
+            "Value": "d1s7iyejdj2gn0.cloudfront.net"
+          }
+        ]
+      }
+    }
+  ]
+}

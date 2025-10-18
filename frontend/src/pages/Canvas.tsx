@@ -99,7 +99,9 @@ function Canvas() {
         // Server requires authentication before sending initial state
         if (user) {
           try {
-            const token = await user.getIdToken()
+            // 🚀 FIX: Force token refresh to prevent stale token errors
+            // This is especially important with 3000+ objects causing long initial sync
+            const token = await user.getIdToken(true) // true = force refresh
             console.log('🔑 Sending authentication...', user.displayName || user.email)
             console.log('📁 Project ID:', projectId)
             wsClient.authenticate(token, user.displayName || undefined, projectId)
@@ -367,11 +369,25 @@ function Canvas() {
     const shapes: CanvasObject['type'][] = ['rectangle', 'circle', 'triangle', 'star', 'ellipse']
     const colors = ['#FF6B6B', '#4ECDC4', '#45B7D1', '#FFA07A', '#98D8C8', '#F7DC6F', '#BB8FCE', '#85C1E2']
 
+    // 🚀 FIX: Calculate visible canvas area in canvas space (accounting for zoom & pan)
+    // Convert screen coordinates to canvas coordinates: (screenPos - pan) / scale
+    const viewportLeft = (-position.x / scale)
+    const viewportTop = (-position.y / scale)
+    const viewportRight = ((stageSize.width - position.x) / scale)
+    const viewportBottom = ((stageSize.height - position.y) / scale)
+
+    // Add padding to avoid objects at edges
+    const padding = 50
+    const canvasWidth = viewportRight - viewportLeft - padding * 2
+    const canvasHeight = viewportBottom - viewportTop - padding * 2
+
     for (let i = 0; i < count; i++) {
       const shape = shapes[Math.floor(Math.random() * shapes.length)]
       const color = colors[Math.floor(Math.random() * colors.length)]
-      const x = Math.random() * (stageSize.width - 300) + 100
-      const y = Math.random() * (stageSize.height - 300) + 100
+
+      // Generate positions within visible canvas area
+      const x = viewportLeft + padding + Math.random() * canvasWidth
+      const y = viewportTop + padding + Math.random() * canvasHeight
       const width = Math.random() * 100 + 60
       const height = Math.random() * 100 + 60
 
@@ -396,7 +412,7 @@ function Canvas() {
         timestamp: new Date().toISOString()
       })
     }
-  }, [user, isAuthenticated, stageSize, objects.length])
+  }, [user, isAuthenticated, stageSize, objects.length, scale, position])
 
   // Handle object selection from Konva
   const handleSelect = (ids: Set<string>) => {
@@ -556,11 +572,16 @@ function Canvas() {
       const oldScale = scale
 
       const containerRect = container.getBoundingClientRect()
-      const pointer = {
-        x: (e.clientX - containerRect.left) / oldScale,
-        y: (e.clientY - containerRect.top) / oldScale
-      }
 
+      // Mouse position in screen space (relative to container)
+      const mouseX = e.clientX - containerRect.left
+      const mouseY = e.clientY - containerRect.top
+
+      // Mouse position in canvas space (before zoom)
+      const canvasX = (mouseX - position.x) / oldScale
+      const canvasY = (mouseY - position.y) / oldScale
+
+      // Calculate new scale
       const newScale = e.deltaY < 0 ? oldScale * scaleBy : oldScale / scaleBy
 
       // Limit zoom between 0.1x and 5x
@@ -568,10 +589,11 @@ function Canvas() {
 
       setScale(clampedScale)
 
-      // Adjust position to zoom towards mouse pointer
+      // Adjust position so the point under mouse stays in same place
+      // Formula: newPosition = mousePosition - canvasPoint * newScale
       setPosition({
-        x: (pointer.x - (pointer.x - position.x) * (clampedScale / oldScale)),
-        y: (pointer.y - (pointer.y - position.y) * (clampedScale / oldScale))
+        x: mouseX - canvasX * clampedScale,
+        y: mouseY - canvasY * clampedScale
       })
     }
 
@@ -630,12 +652,21 @@ function Canvas() {
           const { type, count = 1, color, text, width, height } = parameters as any;
           const newObjects: CanvasObject[] = [];
 
+          // 🚀 FIX: Calculate visible canvas area (same as random objects)
+          const viewportLeft = (-position.x / scale)
+          const viewportTop = (-position.y / scale)
+          const viewportRight = ((stageSize.width - position.x) / scale)
+          const viewportBottom = ((stageSize.height - position.y) / scale)
+          const padding = 50
+          const canvasWidth = viewportRight - viewportLeft - padding * 2
+          const canvasHeight = viewportBottom - viewportTop - padding * 2
+
           for (let i = 0; i < count; i++) {
             const newObject: CanvasObject = {
               id: crypto.randomUUID(),
               type,
-              x: Math.random() * (stageSize.width - 200) + 100,
-              y: Math.random() * (stageSize.height - 200) + 100,
+              x: viewportLeft + padding + Math.random() * canvasWidth,
+              y: viewportTop + padding + Math.random() * canvasHeight,
               width: width || (type === 'line' ? 0 : type === 'text' ? 200 : 150),
               height: height || (type === 'line' ? 0 : type === 'text' ? 50 : 100),
               rotation: 0,
@@ -778,7 +809,10 @@ function Canvas() {
             targetObjects = objects.filter(obj => selectedIds.has(obj.id));
           }
 
-          if (targetObjects.length === 0) return;
+          if (targetObjects.length === 0) {
+            console.log('No objects to arrange');
+            return;
+          }
 
           // Calculate center point
           const centerX = stageSize.width / 2;
@@ -787,60 +821,60 @@ function Canvas() {
           switch (arrangement) {
             case 'grid': {
               const cols = Math.ceil(Math.sqrt(targetObjects.length));
+              const avgWidth = targetObjects.reduce((sum, obj) => sum + (obj.width || 100), 0) / targetObjects.length;
+              const avgHeight = targetObjects.reduce((sum, obj) => sum + (obj.height || 100), 0) / targetObjects.length;
+
               targetObjects.forEach((obj, index) => {
                 const row = Math.floor(index / cols);
                 const col = index % cols;
                 wsClient.updateObject({
                   id: obj.id,
-                  x: 100 + col * (obj.width + spacing),
-                  y: 100 + row * (obj.height + spacing),
-                  updatedAt: new Date().toISOString()
+                  x: 100 + col * (avgWidth + spacing),
+                  y: 100 + row * (avgHeight + spacing)
                 });
               });
               break;
             }
             case 'circle': {
-              const radius = 150;
+              const radius = 200;
               targetObjects.forEach((obj, index) => {
                 const angle = (2 * Math.PI * index) / targetObjects.length;
                 wsClient.updateObject({
                   id: obj.id,
                   x: centerX + radius * Math.cos(angle),
-                  y: centerY + radius * Math.sin(angle),
-                  updatedAt: new Date().toISOString()
+                  y: centerY + radius * Math.sin(angle)
                 });
               });
               break;
             }
             case 'line-horizontal': {
+              const avgWidth = targetObjects.reduce((sum, obj) => sum + (obj.width || 100), 0) / targetObjects.length;
               targetObjects.forEach((obj, index) => {
                 wsClient.updateObject({
                   id: obj.id,
-                  x: 100 + index * (obj.width + spacing),
-                  y: centerY,
-                  updatedAt: new Date().toISOString()
+                  x: 100 + index * (avgWidth + spacing),
+                  y: centerY
                 });
               });
               break;
             }
             case 'line-vertical': {
+              const avgHeight = targetObjects.reduce((sum, obj) => sum + (obj.height || 100), 0) / targetObjects.length;
               targetObjects.forEach((obj, index) => {
                 wsClient.updateObject({
                   id: obj.id,
                   x: centerX,
-                  y: 100 + index * (obj.height + spacing),
-                  updatedAt: new Date().toISOString()
+                  y: 100 + index * (avgHeight + spacing)
                 });
               });
               break;
             }
             case 'align-left': {
-              const leftmost = Math.min(...targetObjects.map(o => o.x));
+              const leftmost = Math.min(...targetObjects.map(o => o.x - (o.width || 100) / 2));
               targetObjects.forEach(obj => {
                 wsClient.updateObject({
                   id: obj.id,
-                  x: leftmost,
-                  updatedAt: new Date().toISOString()
+                  x: leftmost
                 });
               });
               break;
@@ -849,25 +883,23 @@ function Canvas() {
               targetObjects.forEach(obj => {
                 wsClient.updateObject({
                   id: obj.id,
-                  x: centerX - obj.width / 2,
-                  updatedAt: new Date().toISOString()
+                  x: centerX
                 });
               });
               break;
             }
             case 'align-right': {
-              const rightmost = Math.max(...targetObjects.map(o => o.x + o.width));
+              const rightmost = Math.max(...targetObjects.map(o => o.x + (o.width || 100) / 2));
               targetObjects.forEach(obj => {
                 wsClient.updateObject({
                   id: obj.id,
-                  x: rightmost - obj.width,
-                  updatedAt: new Date().toISOString()
+                  x: rightmost
                 });
               });
               break;
             }
           }
-          console.log(`Arranged ${targetObjects.length} object(s) in ${arrangement}`);
+          console.log(`✅ Arranged ${targetObjects.length} object(s) in ${arrangement} pattern`);
           break;
         }
 
@@ -895,6 +927,54 @@ function Canvas() {
           });
           console.log(`Duplicated ${targetObjects.length} object(s) ${count} time(s)`);
           break;
+        }
+
+        case 'delete_random_objects': {
+          const { count } = parameters as any;
+
+          if (objects.length === 0) {
+            console.log('No objects to delete');
+            return;
+          }
+
+          // Calculate how many objects to actually delete
+          const deleteCount = Math.min(count, objects.length);
+
+          // Create a shuffled copy of all objects
+          const shuffledObjects = [...objects].sort(() => Math.random() - 0.5);
+
+          // Take the first N objects from shuffled array
+          const objectsToDelete = shuffledObjects.slice(0, deleteCount);
+
+          // Delete each selected object
+          objectsToDelete.forEach(obj => {
+            wsClient.deleteObject(obj.id);
+          });
+
+          console.log(`✅ Randomly deleted ${deleteCount} object(s) from canvas`);
+          break;
+        }
+
+        case 'count_objects': {
+          const { type } = parameters as any;
+
+          let count = 0;
+          let message = '';
+
+          if (type === 'all') {
+            count = objects.length;
+            message = `There are ${count} object${count !== 1 ? 's' : ''} on the canvas.`;
+          } else {
+            // Count specific type
+            count = objects.filter(obj => obj.type === type).length;
+            message = `There are ${count} ${type}${count !== 1 ? 's' : ''} on the canvas.`;
+          }
+
+          // Log for debugging
+          console.log(`📊 Count: ${message}`);
+
+          // Return the count message (AI will display this to user)
+          return message;
         }
 
         default:

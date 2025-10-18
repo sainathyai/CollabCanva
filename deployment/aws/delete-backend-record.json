@@ -1,0 +1,16 @@
+{
+  "Changes": [
+    {
+      "Action": "DELETE",
+      "ResourceRecordSet": {
+        "Name": "collabcanva.sainathyai.com",
+        "Type": "A",
+        "AliasTarget": {
+          "HostedZoneId": "Z3AADJGX6KTTL2",
+          "DNSName": "collabcanvas-alb-1957081275.us-east-2.elb.amazonaws.com",
+          "EvaluateTargetHealth": false
+        }
+      }
+    }
+  ]
+}

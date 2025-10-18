@@ -29,8 +29,8 @@
 ## Key Technical Decisions
 
 ### 1. WebSocket Over HTTP Polling
-**Decision**: Use WebSocket for all real-time communication  
-**Rationale**: 
+**Decision**: Use WebSocket for all real-time communication
+**Rationale**:
 - Bidirectional communication required for cursors
 - Lower latency than polling
 - Reduced server load
@@ -40,7 +40,7 @@
 - Rejected: Unidirectional, would need separate HTTP for client→server
 
 ### 2. In-Memory State (No Database)
-**Decision**: Store canvas state and presence in backend memory  
+**Decision**: Store canvas state and presence in backend memory
 **Rationale**:
 - Simplifies MVP scope
 - Reduces latency (no DB round trips)
@@ -50,7 +50,7 @@
 **Trade-off**: State lost on server restart, but acceptable for MVP
 
 ### 3. Firebase Auth (Not Custom Auth)
-**Decision**: Use Firebase Authentication with Google OAuth  
+**Decision**: Use Firebase Authentication with Google OAuth
 **Rationale**:
 - No need to build auth system
 - Secure token-based verification
@@ -60,14 +60,14 @@
 **Implementation**: Frontend gets token → sends to backend → backend verifies with Firebase Admin SDK
 
 ### 4. Client-Side Rendering (Not SSR)
-**Decision**: Vite SPA with client-side routing  
+**Decision**: Vite SPA with client-side routing
 **Rationale**:
 - Real-time app doesn't benefit from SSR
 - Simpler deployment
 - Faster development
 
 ### 5. Monorepo Structure (Separate Frontend/Backend)
-**Decision**: Two separate projects in same repo  
+**Decision**: Two separate projects in same repo
 **Rationale**:
 - Different deployment targets (Vercel vs Render)
 - Different TypeScript configs
@@ -83,7 +83,7 @@
 class WebSocketClient {
   private ws: WebSocket | null = null
   private messageHandlers: Set<MessageHandler> = new Set()
-  
+
   // Singleton pattern for global WebSocket connection
 }
 
@@ -129,7 +129,7 @@ const [presences, setPresences] = useState<Map<string, Presence>>(new Map())
 // ws/handlers.ts
 export function handleMessage(ws: WebSocket, data: string) {
   const message = JSON.parse(data)
-  
+
   switch (message.type) {
     case 'auth': return handleAuth(ws, message)
     case 'object.create': return handleObjectCreate(ws, message)
@@ -181,18 +181,18 @@ enum MessageType {
   AUTH = 'auth',                    // Client → Server
   AUTH_SUCCESS = 'auth.success',    // Server → Client
   AUTH_ERROR = 'auth.error',        // Server → Client
-  
+
   // Canvas Operations
   OBJECT_CREATE = 'object.create',  // Client → Server → Broadcast
   OBJECT_UPDATE = 'object.update',  // Client → Server → Broadcast
   OBJECT_DELETE = 'object.delete',  // Client → Server → Broadcast
   INITIAL_STATE = 'initialState',   // Server → Client (on connect)
-  
+
   // Presence
   PRESENCE_JOIN = 'presence.join',      // Server → Broadcast (user joins)
   PRESENCE_CURSOR = 'presence.cursor',  // Client → Server → Broadcast
   PRESENCE_LEAVE = 'presence.leave',    // Server → Broadcast (user leaves)
-  
+
   // Errors
   ERROR = 'error'                   // Server → Client
 }

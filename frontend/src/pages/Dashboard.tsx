@@ -11,7 +11,7 @@ import { useProject } from '../contexts/ProjectContext'
 import { getUserProjects, createProject, deleteProject, updateProject, addCollaborator, removeCollaborator } from '../lib/projectApi'
 import type { Project } from '../contexts/ProjectContext'
 
-export function Dashboard() {
+function Dashboard() {
   const user = getCurrentUser()
   const { projects, setProjects } = useProject()
   const navigate = useNavigate()
@@ -1291,7 +1291,6 @@ function ProjectSection({
             <div key={project.projectId} style={{ minWidth: '280px', maxWidth: '280px' }}>
               <ProjectCard
                 project={project}
-                currentUserId={user?.uid}
                 currentUserEmail={user?.email || undefined}
                 isOwner={isOwner}
                 onOpen={() => onOpenProject(project.projectId)}
@@ -1402,7 +1401,6 @@ function NewProjectCard({ onClick }: NewProjectCardProps) {
 // Project Card Component
 interface ProjectCardProps {
   project: Project
-  currentUserId?: string
   currentUserEmail?: string
   isOwner: boolean
   onOpen: () => void
@@ -1411,7 +1409,7 @@ interface ProjectCardProps {
   onManageCollaborators: () => void
 }
 
-function ProjectCard({ project, currentUserId, currentUserEmail, isOwner, onOpen, onEdit, onDelete, onManageCollaborators }: ProjectCardProps) {
+function ProjectCard({ project, currentUserEmail, isOwner, onOpen, onEdit, onDelete, onManageCollaborators }: ProjectCardProps) {
   const [isHovered, setIsHovered] = useState(false)
   const [isEditHovered, setIsEditHovered] = useState(false)
   const [isDeleteHovered, setIsDeleteHovered] = useState(false)
@@ -1726,3 +1724,5 @@ function ProjectCard({ project, currentUserId, currentUserEmail, isOwner, onOpen
     </div>
   )
 }
+
+export default Dashboard

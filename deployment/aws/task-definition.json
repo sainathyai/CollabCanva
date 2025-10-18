@@ -1,0 +1,78 @@
+{
+  "family": "collabcanvas-backend-task",
+  "networkMode": "awsvpc",
+  "requiresCompatibilities": [
+    "FARGATE"
+  ],
+  "cpu": "512",
+  "memory": "1024",
+  "executionRoleArn": "arn:aws:iam::971422717446:role/collabcanvas-task-execution-role",
+  "taskRoleArn": "arn:aws:iam::971422717446:role/collabcanvas-task-role",
+  "containerDefinitions": [
+    {
+      "name": "collabcanvas-backend",
+      "image": "971422717446.dkr.ecr.us-east-2.amazonaws.com/collabcanvas-backend:latest",
+      "essential": true,
+      "portMappings": [
+        {
+          "containerPort": 8080,
+          "protocol": "tcp"
+        }
+      ],
+      "secrets": [
+        {
+          "name": "FIREBASE_PROJECT_ID",
+          "valueFrom": "/collabcanvas/prod/firebase-project-id"
+        },
+        {
+          "name": "FIREBASE_CLIENT_EMAIL",
+          "valueFrom": "/collabcanvas/prod/firebase-client-email"
+        },
+        {
+          "name": "FIREBASE_PRIVATE_KEY",
+          "valueFrom": "/collabcanvas/prod/firebase-private-key"
+        }
+      ],
+      "environment": [
+        {
+          "name": "NODE_ENV",
+          "value": "production"
+        },
+        {
+          "name": "PORT",
+          "value": "8080"
+        },
+        {
+          "name": "AWS_REGION",
+          "value": "us-east-1"
+        },
+        {
+          "name": "DYNAMODB_TABLE_PREFIX",
+          "value": "collabcanvas"
+        },
+        {
+          "name": "ALLOWED_ORIGINS",
+          "value": "http://localhost:5173,http://localhost:5174,https://pr15-rbac.d391c0a1azscel.amplifyapp.com,https://collabcanva.sainathyai.com"
+        }
+      ],
+      "logConfiguration": {
+        "logDriver": "awslogs",
+        "options": {
+          "awslogs-group": "/ecs/collabcanvas-backend",
+          "awslogs-region": "us-east-2",
+          "awslogs-stream-prefix": "ecs"
+        }
+      },
+      "healthCheck": {
+        "command": [
+          "CMD-SHELL",
+          "wget --no-verbose --tries=1 --spider http://localhost:8080/health || exit 1"
+        ],
+        "interval": 30,
+        "timeout": 5,
+        "retries": 3,
+        "startPeriod": 60
+      }
+    }
+  ]
+}

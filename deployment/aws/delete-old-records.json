@@ -1,0 +1,29 @@
+{
+  "Changes": [
+    {
+      "Action": "DELETE",
+      "ResourceRecordSet": {
+        "Name": "app.sainathyai.com",
+        "Type": "CNAME",
+        "TTL": 300,
+        "ResourceRecords": [
+          {
+            "Value": "d2d4bazwy3b8il.cloudfront.net"
+          }
+        ]
+      }
+    },
+    {
+      "Action": "DELETE",
+      "ResourceRecordSet": {
+        "Name": "collabcanva.sainathyai.com",
+        "Type": "A",
+        "AliasTarget": {
+          "HostedZoneId": "Z3AADJGX6KTTL2",
+          "DNSName": "collabcanvas-alb-1957081275.us-east-2.elb.amazonaws.com",
+          "EvaluateTargetHealth": false
+        }
+      }
+    }
+  ]
+}

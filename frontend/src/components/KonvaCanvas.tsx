@@ -2,6 +2,7 @@ import { useRef, useEffect, useState, useMemo } from 'react';
 import { Stage, Layer, Rect, Circle, Line, Text, RegularPolygon, Star, Arrow, Ellipse } from 'react-konva';
 import Konva from 'konva';
 import { CanvasObject } from '../types';
+import { getVisibleObjects, getViewportStats } from '../lib/viewport';
 
 interface KonvaCanvasProps {
   objects: CanvasObject[];
@@ -17,6 +18,8 @@ interface KonvaCanvasProps {
   showGrid?: boolean;
   isViewer?: boolean;
 }
+
+// Note: Memoization removed to ensure event handlers work correctly with multi-select drag
 
 export function KonvaCanvas({
   objects,
@@ -41,6 +44,26 @@ export function KonvaCanvas({
   const [editingTextId, setEditingTextId] = useState<string | null>(null);
   const [textareaValue, setTextareaValue] = useState('');
   const [textareaPosition, setTextareaPosition] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
+
+  // 🚀 OPTIMIZATION: Object Virtualization - Only render visible objects
+  const visibleObjects = useMemo(() => {
+    const viewport = {
+      x: position.x,
+      y: position.y,
+      width: stageWidth,
+      height: stageHeight
+    };
+
+    const visible = getVisibleObjects(objects, viewport, scale);
+
+    // Log stats in development for monitoring
+    if (process.env.NODE_ENV === 'development' && objects.length > 50) {
+      const stats = getViewportStats(objects, viewport, scale);
+      console.log(`🎨 Viewport: Rendering ${stats.visible}/${stats.total} objects (${stats.cullingRatio} culled)`);
+    }
+
+    return visible;
+  }, [objects, position.x, position.y, scale, stageWidth, stageHeight]);
 
   // Create individual transformers for each selected shape
   useEffect(() => {
@@ -301,7 +324,7 @@ export function KonvaCanvas({
     }
   };
 
-  // Generate 50px grid with 5px subdivisions
+  // 🚀 OPTIMIZATION: Adaptive Grid - Show/hide minor grid based on zoom level
   // Memoize grid generation to prevent recalculation during object drag/transform
   const gridLines = useMemo(() => {
     if (!showGrid) return null;
@@ -323,37 +346,43 @@ export function KonvaCanvas({
     const startY = Math.floor(viewStartY / majorGridSize) * majorGridSize;
     const endY = Math.ceil(viewEndY / majorGridSize) * majorGridSize;
 
-    // Draw minor grid lines (5px subdivisions)
-    for (let x = startX; x <= endX; x += minorGridSize) {
-      // Use Math.abs to handle negative coordinates properly
-      if (Math.abs(x % majorGridSize) > 0.001) { // Skip major grid positions (with floating point tolerance)
-        lines.push(
-          <Line
-            key={`minor-v-${x}`}
-            points={[x, startY, x, endY]}
-            stroke="#DCDCDC"
-            strokeWidth={0.5 / scale}
-            listening={false}
-          />
-        );
+    // 🚀 OPTIMIZATION: Only show minor grid when zoomed in enough
+    // At low zoom levels, minor grid is too dense and impacts performance
+    const showMinorGrid = scale > 0.5;
+
+    // Draw minor grid lines (5px subdivisions) - only when zoomed in
+    if (showMinorGrid) {
+      for (let x = startX; x <= endX; x += minorGridSize) {
+        // Use Math.abs to handle negative coordinates properly
+        if (Math.abs(x % majorGridSize) > 0.001) { // Skip major grid positions (with floating point tolerance)
+          lines.push(
+            <Line
+              key={`minor-v-${x}`}
+              points={[x, startY, x, endY]}
+              stroke="#DCDCDC"
+              strokeWidth={0.5 / scale}
+              listening={false}
+            />
+          );
+        }
+      }
+
+      for (let y = startY; y <= endY; y += minorGridSize) {
+        if (Math.abs(y % majorGridSize) > 0.001) { // Skip major grid positions (with floating point tolerance)
+          lines.push(
+            <Line
+              key={`minor-h-${y}`}
+              points={[startX, y, endX, y]}
+              stroke="#DCDCDC"
+              strokeWidth={0.5 / scale}
+              listening={false}
+            />
+          );
+        }
       }
     }
 
-    for (let y = startY; y <= endY; y += minorGridSize) {
-      if (Math.abs(y % majorGridSize) > 0.001) { // Skip major grid positions (with floating point tolerance)
-        lines.push(
-          <Line
-            key={`minor-h-${y}`}
-            points={[startX, y, endX, y]}
-            stroke="#DCDCDC"
-            strokeWidth={0.5 / scale}
-            listening={false}
-          />
-        );
-      }
-    }
-
-    // Draw major grid lines (50px)
+    // Draw major grid lines (50px) - always visible
     for (let x = startX; x <= endX; x += majorGridSize) {
       lines.push(
         <Line
@@ -376,6 +405,13 @@ export function KonvaCanvas({
           listening={false}
         />
       );
+    }
+
+    // Log grid stats in development
+    if (process.env.NODE_ENV === 'development') {
+      const minorCount = showMinorGrid ? lines.length - ((endX - startX) / majorGridSize + 1) * 2 : 0;
+      const majorCount = lines.length - minorCount;
+      console.log(`📐 Grid: ${majorCount} major + ${minorCount} minor lines (scale: ${scale.toFixed(2)})`);
     }
 
     return lines;
@@ -410,7 +446,7 @@ export function KonvaCanvas({
 
         {/* Objects Layer */}
         <Layer ref={layerRef}>
-          {objects.map(obj => {
+          {visibleObjects.map(obj => {
             switch (obj.type) {
               case 'rectangle':
                 return (

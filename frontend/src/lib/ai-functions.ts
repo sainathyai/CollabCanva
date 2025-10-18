@@ -210,6 +210,37 @@ export const canvasFunctions = [
       },
       required: ['selector']
     }
+  },
+  {
+    name: 'delete_random_objects',
+    description: 'Randomly select and delete a specified number of objects from the canvas. Use this when user wants to reduce clutter or randomly remove objects.',
+    parameters: {
+      type: 'object',
+      properties: {
+        count: {
+          type: 'number',
+          description: 'Number of random objects to delete',
+          minimum: 1,
+          maximum: 100
+        }
+      },
+      required: ['count']
+    }
+  },
+  {
+    name: 'count_objects',
+    description: 'Count the number of objects on the canvas. Can count all objects or filter by specific shape type. Use this when user asks "how many circles?", "count all objects", etc.',
+    parameters: {
+      type: 'object',
+      properties: {
+        type: {
+          type: 'string',
+          enum: ['all', 'rectangle', 'circle', 'triangle', 'star', 'ellipse', 'roundedRect', 'diamond', 'pentagon', 'polygon', 'arrow', 'line', 'text'],
+          description: 'Type of objects to count. Use "all" to count all objects regardless of type.'
+        }
+      },
+      required: ['type']
+    }
   }
 ];
 
@@ -264,6 +295,14 @@ export type DuplicateObjectsParams = {
   offset?: number;
 };
 
+export type DeleteRandomObjectsParams = {
+  count: number;
+};
+
+export type CountObjectsParams = {
+  type: 'all' | CanvasObject['type'];
+};
+
 export type AIFunctionName =
   | 'generate_random_objects'
   | 'create_shape'
@@ -273,7 +312,9 @@ export type AIFunctionName =
   | 'rotate_objects'
   | 'delete_objects'
   | 'arrange_objects'
-  | 'duplicate_objects';
+  | 'duplicate_objects'
+  | 'delete_random_objects'
+  | 'count_objects';
 
 export type AIFunctionParams =
   | GenerateRandomObjectsParams
@@ -284,5 +325,7 @@ export type AIFunctionParams =
   | RotateObjectsParams
   | DeleteObjectsParams
   | ArrangeObjectsParams
-  | DuplicateObjectsParams;
+  | DuplicateObjectsParams
+  | DeleteRandomObjectsParams
+  | CountObjectsParams;
 

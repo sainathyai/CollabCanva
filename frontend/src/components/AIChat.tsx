@@ -11,7 +11,7 @@ interface Message {
 
 interface AIChatProps {
   context: AIContext;
-  onExecuteFunction: (functionName: AIFunctionName, parameters: AIFunctionParams) => void;
+  onExecuteFunction: (functionName: AIFunctionName, parameters: AIFunctionParams) => string | void;
   isOpen: boolean;
   onToggle: () => void;
 }
@@ -29,6 +29,7 @@ export function AIChat({ context, onExecuteFunction, isOpen, onToggle }: AIChatP
   const [isLoading, setIsLoading] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const sidebarRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
   const [showExamples, setShowExamples] = useState(false);
 
   const scrollToBottom = () => {
@@ -106,14 +107,14 @@ export function AIChat({ context, onExecuteFunction, isOpen, onToggle }: AIChatP
       const response = await processAICommand(input, context, conversationHistory);
 
       if (response.success && response.functionCall) {
-        // Execute the function
-        onExecuteFunction(response.functionCall.name, response.functionCall.parameters);
+        // Execute the function (may return a message for info functions like count)
+        const result = onExecuteFunction(response.functionCall.name, response.functionCall.parameters);
 
         // Add success message
         const successMessage: Message = {
           id: (Date.now() + 1).toString(),
           role: 'assistant',
-          content: `Done! I executed: ${response.functionCall.name.replace(/_/g, ' ')} with the parameters you specified.`,
+          content: result || `Done! I executed: ${response.functionCall.name.replace(/_/g, ' ')} with the parameters you specified.`,
           timestamp: new Date()
         };
         setMessages(prev => [...prev, successMessage]);
@@ -147,6 +148,10 @@ export function AIChat({ context, onExecuteFunction, isOpen, onToggle }: AIChatP
       setMessages(prev => [...prev, errorMessage]);
     } finally {
       setIsLoading(false);
+      // Keep focus in the input field after command execution
+      setTimeout(() => {
+        inputRef.current?.focus();
+      }, 100);
     }
   };
 
@@ -238,12 +243,14 @@ export function AIChat({ context, onExecuteFunction, isOpen, onToggle }: AIChatP
           💡
         </button>
         <input
+          ref={inputRef}
           type="text"
           value={input}
           onChange={(e) => setInput(e.target.value)}
           placeholder="Ask me to create, modify, or arrange shapes..."
           className="ai-chat-input"
           disabled={isLoading}
+          autoFocus
         />
         <button
           type="submit"
