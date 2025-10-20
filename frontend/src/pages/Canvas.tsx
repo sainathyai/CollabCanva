@@ -16,6 +16,7 @@ import type { KonvaCanvasHandle } from '../components/KonvaCanvas'
 import { TemplateSelector } from '../components/TemplateSelector'
 import type { Template } from '../lib/templates'
 import { HistoryManager } from '../lib/history'
+import { ShortcutsHelp } from '../components/ShortcutsHelp'
 
 // Helper function to generate user colors
 const getUserColor = (userId: string): string => {
@@ -74,6 +75,9 @@ function Canvas() {
   const [showGrid, setShowGrid] = useState(true)
   const [snapToGrid, setSnapToGrid] = useState(false)
   const [isTemplateSelectorOpen, setIsTemplateSelectorOpen] = useState(false)
+  const [isShortcutsHelpOpen, setIsShortcutsHelpOpen] = useState(false)
+  const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false)
+  const [isSaving, setIsSaving] = useState(false)
 
   const containerRef = useRef<HTMLDivElement>(null)
   const canvasRef = useRef<KonvaCanvasHandle>(null)
@@ -81,6 +85,7 @@ function Canvas() {
   const historyManager = useRef(new HistoryManager(50))
   const [canUndo, setCanUndo] = useState(false)
   const [canRedo, setCanRedo] = useState(false)
+  const lastSavedObjects = useRef<CanvasObject[]>([])
 
   // Load project details
   useEffect(() => {
@@ -397,16 +402,18 @@ function Canvas() {
     console.log(`📄 Loading template: ${template.name}`)
 
     // Calculate offset to prevent template overlap
-    // Each template gets a 100px diagonal offset from the previous one
-    const templateOffset = Math.floor(objects.length / 10) * 100
+    // Each template gets a 200px diagonal offset (increased for better spacing)
+    const templateCount = Math.floor(objects.length / 8) // Approximate templates loaded
+    const offsetX = (templateCount % 4) * 200 // Horizontal: 0, 200, 400, 600, then wrap
+    const offsetY = Math.floor(templateCount / 4) * 200 // Vertical: increment every 4 templates
 
     // Create all template objects on the canvas
     template.objects.forEach((obj) => {
       const newObject: CanvasObject = {
         id: crypto.randomUUID(),
         type: obj.type,
-        x: obj.x + templateOffset,
-        y: obj.y + templateOffset,
+        x: obj.x + offsetX,
+        y: obj.y + offsetY,
         width: obj.width,
         height: obj.height,
         rotation: obj.rotation,
@@ -423,7 +430,7 @@ function Canvas() {
       wsClient.createObject(newObject)
     })
 
-    console.log(`✅ Loaded template "${template.name}" with ${template.objects.length} objects at offset (${templateOffset}, ${templateOffset})`)
+    console.log(`✅ Loaded template "${template.name}" with ${template.objects.length} objects at offset (${offsetX}, ${offsetY})`)
   }, [user, isAuthenticated, isViewer, objects.length])
 
   // Undo/Redo handlers (simplified - tracks object snapshots)
@@ -443,6 +450,46 @@ function Canvas() {
   useEffect(() => {
     setCanUndo(historyManager.current.canUndo())
     setCanRedo(historyManager.current.canRedo())
+  }, [objects])
+
+  // Track unsaved changes
+  useEffect(() => {
+    // Compare current objects with last saved state
+    const currentObjectsStr = JSON.stringify(objects.map(obj => ({ id: obj.id, x: obj.x, y: obj.y, width: obj.width, height: obj.height, rotation: obj.rotation, color: obj.color, text: obj.text })))
+    const lastSavedStr = JSON.stringify(lastSavedObjects.current.map(obj => ({ id: obj.id, x: obj.x, y: obj.y, width: obj.width, height: obj.height, rotation: obj.rotation, color: obj.color, text: obj.text })))
+    
+    if (currentObjectsStr !== lastSavedStr && lastSavedObjects.current.length > 0) {
+      setHasUnsavedChanges(true)
+    }
+  }, [objects])
+
+  // Manual save function
+  const handleSave = useCallback(() => {
+    if (!isAuthenticated || isViewer) {
+      alert('You do not have permission to save')
+      return
+    }
+
+    setIsSaving(true)
+    
+    // The WebSocket already handles real-time syncing, so we just need to:
+    // 1. Update the last saved state
+    // 2. Show visual feedback
+    lastSavedObjects.current = JSON.parse(JSON.stringify(objects))
+    
+    // Simulate save feedback
+    setTimeout(() => {
+      setIsSaving(false)
+      setHasUnsavedChanges(false)
+      console.log('✅ Canvas saved successfully!')
+    }, 500)
+  }, [objects, isAuthenticated, isViewer])
+
+  // Initialize last saved state when objects first load
+  useEffect(() => {
+    if (objects.length > 0 && lastSavedObjects.current.length === 0) {
+      lastSavedObjects.current = JSON.parse(JSON.stringify(objects))
+    }
   }, [objects])
 
   const handleCreateRandomObjects = useCallback((count: number) => {
@@ -1083,8 +1130,13 @@ function Canvas() {
         return
       }
 
+      // Cmd+S / Ctrl+S: save
+      if ((e.metaKey || e.ctrlKey) && e.key === 's') {
+        e.preventDefault()
+        handleSave()
+      }
       // Cmd+Z / Ctrl+Z: undo
-      if ((e.metaKey || e.ctrlKey) && e.key === 'z' && !e.shiftKey) {
+      else if ((e.metaKey || e.ctrlKey) && e.key === 'z' && !e.shiftKey) {
         e.preventDefault()
         handleUndo()
       }
@@ -1142,6 +1194,11 @@ function Canvas() {
       else if (e.key === 's' || e.key === 'S') {
         e.preventDefault()
         setSnapToGrid(prev => !prev)
+      }
+      // ?: toggle shortcuts help
+      else if (e.key === '?') {
+        e.preventDefault()
+        setIsShortcutsHelpOpen(prev => !prev)
       }
       // F: fit all objects
       else if (e.key === 'f' || e.key === 'F') {
@@ -1228,6 +1285,9 @@ function Canvas() {
         canRedo={canRedo}
         onUndo={handleUndo}
         onRedo={handleRedo}
+        onSave={handleSave}
+        hasUnsavedChanges={hasUnsavedChanges}
+        isSaving={isSaving}
       />
 
       <Toolbar
@@ -1304,6 +1364,12 @@ function Canvas() {
         isOpen={isTemplateSelectorOpen}
         onClose={() => setIsTemplateSelectorOpen(false)}
         onSelectTemplate={handleLoadTemplate}
+      />
+
+      {/* Keyboard Shortcuts Help Modal */}
+      <ShortcutsHelp
+        isOpen={isShortcutsHelpOpen}
+        onClose={() => setIsShortcutsHelpOpen(false)}
       />
     </div>
   )

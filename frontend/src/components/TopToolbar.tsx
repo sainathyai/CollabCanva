@@ -27,6 +27,9 @@ interface TopToolbarProps {
   canRedo: boolean
   onUndo: () => void
   onRedo: () => void
+  onSave: () => void
+  hasUnsavedChanges: boolean
+  isSaving: boolean
 }
 
 /**
@@ -58,7 +61,10 @@ const TopToolbar: FC<TopToolbarProps> = ({
   canUndo,
   canRedo,
   onUndo,
-  onRedo
+  onRedo,
+  onSave,
+  hasUnsavedChanges,
+  isSaving
 }) => {
   const isDisabled = !isAuthenticated || isViewer
   const [randomCount, setRandomCount] = useState(5)
@@ -74,6 +80,42 @@ const TopToolbar: FC<TopToolbarProps> = ({
       <div className="top-toolbar-section">
         <span className="top-toolbar-label">Edit</span>
         <div className="top-toolbar-group">
+          <div className="top-tool-item">
+            <button
+              className={`top-tool-btn ${isSaving ? 'saving' : ''} ${hasUnsavedChanges ? 'unsaved' : 'saved'}`}
+              onClick={onSave}
+              disabled={isDisabled || isSaving}
+              title={isViewer ? "Viewers cannot save" : hasUnsavedChanges ? "Save Changes (Cmd+S)" : "All Changes Saved"}
+            >
+              <svg width="35" height="35" viewBox="0 0 32 32">
+                {isSaving ? (
+                  <g className="saving-spinner">
+                    <circle cx="16" cy="16" r="10" fill="none" stroke="currentColor" strokeWidth="2" strokeDasharray="15 50" />
+                  </g>
+                ) : hasUnsavedChanges ? (
+                  <>
+                    <rect x="8" y="6" width="16" height="20" fill="none" stroke="currentColor" strokeWidth="2" rx="1" />
+                    <rect x="8" y="6" width="16" height="6" fill="currentColor" opacity="0.3" />
+                    <line x1="11" y1="16" x2="21" y2="16" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+                    <line x1="11" y1="20" x2="21" y2="20" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+                    <circle cx="24" cy="8" r="3" fill="#ff4444" stroke="white" strokeWidth="1.5" />
+                  </>
+                ) : (
+                  <>
+                    <rect x="8" y="6" width="16" height="20" fill="none" stroke="currentColor" strokeWidth="2" rx="1" />
+                    <rect x="8" y="6" width="16" height="6" fill="currentColor" opacity="0.3" />
+                    <line x1="11" y1="16" x2="21" y2="16" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+                    <line x1="11" y1="20" x2="21" y2="20" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+                    <path d="M23 10 L20 13 L18 11" fill="none" stroke="#44ff44" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                  </>
+                )}
+              </svg>
+            </button>
+            <span className="top-tool-label">
+              {isSaving ? 'Saving...' : hasUnsavedChanges ? 'Save' : 'Saved'}
+            </span>
+          </div>
+
           <div className="top-tool-item">
             <button
               className="top-tool-btn"
