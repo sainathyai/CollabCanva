@@ -1384,13 +1384,71 @@ function Canvas() {
           return message;
         }
 
+        case 'load_template': {
+          const { templateName, x: targetX, y: targetY } = parameters as any;
+          
+          // Import templates dynamically
+          import('../lib/templates').then(({ templates }) => {
+            const template = templates.find(t => t.id === templateName);
+            
+            if (!template) {
+              console.error('Template not found:', templateName);
+              return;
+            }
+
+            // Calculate center position if not specified
+            const viewportCenterX = targetX !== undefined ? targetX : 
+              (-position.x + stageSize.width / 2) / scale;
+            const viewportCenterY = targetY !== undefined ? targetY :
+              (-position.y + stageSize.height / 2) / scale;
+
+            // Load all template objects
+            const newObjects: CanvasObject[] = template.objects.map((templateObj) => ({
+              ...templateObj,
+              id: crypto.randomUUID(),
+              userId: user.uid,
+              x: templateObj.x + viewportCenterX - 150, // Offset from template center
+              y: templateObj.y + viewportCenterY - 150,
+              zIndex: objects.length,
+              createdBy: user.uid,
+              createdAt: new Date().toISOString(),
+              updatedAt: new Date().toISOString()
+            }));
+
+            // Create all objects via WebSocket
+            newObjects.forEach(obj => {
+              wsClient.createObject(obj);
+            });
+
+            console.log(`✅ Loaded template: ${template.name} (${newObjects.length} objects)`);
+          });
+          break;
+        }
+
+        case 'export_canvas': {
+          const { filename = 'canvas-export', quality = 1.0 } = parameters as any;
+          
+          // Import export function dynamically
+          import('../lib/export').then(({ exportCanvasToPNGNative }) => {
+            try {
+              exportCanvasToPNGNative(stageRef, { filename, quality });
+              console.log(`✅ Canvas exported as ${filename}.png`);
+              return `Successfully exported canvas as ${filename}.png`;
+            } catch (error) {
+              console.error('Error exporting canvas:', error);
+              return `Failed to export canvas: ${error}`;
+            }
+          });
+          break;
+        }
+
         default:
           console.error('Unknown AI function:', functionName);
       }
     } catch (error) {
       console.error('Error executing AI function:', error);
     }
-  }, [objects, selectedIds, user, isAuthenticated, stageSize, handleCreateRandomObjects]);
+  }, [objects, selectedIds, user, isAuthenticated, stageSize, handleCreateRandomObjects, position, scale, stageRef]);
 
   // Keyboard shortcuts
   useEffect(() => {

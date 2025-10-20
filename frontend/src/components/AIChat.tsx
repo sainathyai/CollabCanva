@@ -56,14 +56,14 @@ export function AIChat({ context, onExecuteFunction, isOpen, onToggle }: AIChatP
   }, []);
 
   const exampleCommands = [
+    'Create a cat 🐱',
+    'Draw a house',
+    'Add a stick figure person',
+    'Export canvas as PNG',
     'Generate 10 random objects',
     'Create 5 blue circles',
     'Make all rectangles red',
-    'Move selected shapes 50 pixels right',
-    'Arrange selected objects in a grid',
-    'Rotate everything 45 degrees',
-    'Delete all circles',
-    'Surprise me with 15 shapes'
+    'Arrange selected objects in a grid'
   ];
 
   const handleSubmit = async (e: React.FormEvent) => {
