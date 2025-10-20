@@ -172,12 +172,6 @@ async function handleAuth(ws: WebSocket, message: AuthMessage) {
       objectCount: initialObjects.length,
       objects: initialObjects.map(o => ({ id: o.id, type: o.type, createdBy: o.createdBy }))
     })
-    ws.send(JSON.stringify({
-      type: MessageType.INITIAL_STATE,
-      objects: initialObjects,
-      timestamp: new Date().toISOString()
-    }))
-
     // Register user presence
     const presence = presenceState.updatePresence(
       userClaims.uid,
@@ -188,8 +182,12 @@ async function handleAuth(ws: WebSocket, message: AuthMessage) {
 
     // Send all existing presence to the new user
     const allPresence = presenceState.getAllPresence()
+    
+    // 🚀 CRITICAL FIX: Send SINGLE INITIAL_STATE message with both objects AND presence
+    // This prevents race conditions where two separate messages cause duplicate/inconsistent state
     ws.send(JSON.stringify({
       type: MessageType.INITIAL_STATE,
+      objects: initialObjects,
       presence: allPresence.filter(p => p.userId !== userClaims.uid),
       timestamp: new Date().toISOString()
     }))

@@ -86,7 +86,7 @@ function Canvas() {
   const [canUndo, setCanUndo] = useState(false)
   const [canRedo, setCanRedo] = useState(false)
   const lastSavedObjects = useRef<CanvasObject[]>([])
-  
+
   // Track if action is from undo/redo to prevent double-recording
   const isUndoRedoAction = useRef(false)
 
@@ -154,13 +154,14 @@ function Canvas() {
 
     switch (message.type) {
       case MessageType.INITIAL_STATE:
-        if ('objects' in message) {
-          // IMPORTANT: Replace all objects, don't append
+        // 🚀 CRITICAL FIX: Only process INITIAL_STATE once to prevent duplicates
+        // Backend now sends objects AND presence in a single message
+        if ('objects' in message && message.objects) {
           setObjects(message.objects)
           setHasReceivedInitialState(true)
           console.log('✅ Loaded initial state:', message.objects.length, 'objects')
         }
-        // Load initial presence state
+        // Load initial presence state (can be in same message)
         if ('presence' in message && message.presence) {
           const presenceMap = new Map<string, Presence>()
           message.presence.forEach((p: Presence) => {
@@ -315,7 +316,7 @@ function Canvas() {
     }
 
     wsClient.createObject(newObject)
-    
+
     // Record history for undo
     if (!isUndoRedoAction.current) {
       historyManager.current.addAction(createHistoryAction.create(newObject))
@@ -440,7 +441,7 @@ function Canvas() {
 
       // Send to server via WebSocket
       wsClient.createObject(newObject)
-      
+
       // Record history for undo
       if (!isUndoRedoAction.current) {
         historyManager.current.addAction(createHistoryAction.create(newObject))
@@ -613,13 +614,13 @@ function Canvas() {
     selectedObjects.forEach(obj => {
       const newX = centerX - (obj.width || 0) / 2
       const newY = centerY - (obj.height || 0) / 2
-      
+
       wsClient.updateObject({
         id: obj.id,
         x: newX,
         y: newY
       })
-      
+
       // Record history for undo
       if (!isUndoRedoAction.current) {
         historyManager.current.addAction(createHistoryAction.move(
@@ -729,7 +730,7 @@ function Canvas() {
         object: newObject,
         timestamp: new Date().toISOString()
       })
-      
+
       // Record history for undo
       if (!isUndoRedoAction.current) {
         historyManager.current.addAction(createHistoryAction.create(newObject))
@@ -748,7 +749,7 @@ function Canvas() {
     const obj = objects.find(o => o.id === id)
     const before: Partial<CanvasObject> = {}
     const after: Partial<CanvasObject> = {}
-    
+
     if (obj && !isUndoRedoAction.current) {
       // Capture changed attributes
       Object.keys(attrs).forEach(key => {
@@ -759,13 +760,13 @@ function Canvas() {
         }
       })
     }
-    
+
     wsClient.updateObject({
       id,
       ...attrs,
       updatedAt: new Date().toISOString()
     })
-    
+
     // Record history for undo (choose type based on what changed)
     if (!isUndoRedoAction.current && obj && Object.keys(before).length > 0) {
       const actionType = (attrs.x !== undefined || attrs.y !== undefined) ? 'move' : 'modify'
@@ -818,7 +819,7 @@ function Canvas() {
         createdAt: new Date().toISOString()
       }
       wsClient.createObject(duplicate)
-      
+
       // Record history for undo
       if (!isUndoRedoAction.current) {
         historyManager.current.addAction(createHistoryAction.create(duplicate))
@@ -833,13 +834,13 @@ function Canvas() {
     selectedIds.forEach(id => {
       // Get object's current color before changing (for history)
       const obj = objects.find(o => o.id === id)
-      
+
       wsClient.updateObject({
         id,
         color,
         updatedAt: new Date().toISOString()
       })
-      
+
       // Record history for undo
       if (!isUndoRedoAction.current && obj && obj.color !== color) {
         historyManager.current.addAction(createHistoryAction.modify(
@@ -865,7 +866,7 @@ function Canvas() {
       wsClient.deleteObject(id)
     })
     setSelectedIds(new Set())
-    
+
     // Record history for undo
     if (!isUndoRedoAction.current && objectsToDelete.length > 0) {
       if (objectsToDelete.length === 1) {
@@ -1177,7 +1178,7 @@ function Canvas() {
             wsClient.deleteObject(obj.id);
           });
           setSelectedIds(new Set());
-          
+
           // Record history for undo
           if (!isUndoRedoAction.current && targetObjects.length > 0) {
             if (targetObjects.length === 1) {
@@ -1186,7 +1187,7 @@ function Canvas() {
               historyManager.current.addAction(createHistoryAction.batchDelete(targetObjects))
             }
           }
-          
+
           console.log(`Deleted ${targetObjects.length} object(s)`);
           break;
         }
@@ -1315,7 +1316,7 @@ function Canvas() {
                 createdAt: new Date().toISOString()
               };
               wsClient.createObject(duplicate);
-              
+
               // Record history for undo
               if (!isUndoRedoAction.current) {
                 historyManager.current.addAction(createHistoryAction.create(duplicate))
@@ -1347,7 +1348,7 @@ function Canvas() {
           objectsToDelete.forEach(obj => {
             wsClient.deleteObject(obj.id);
           });
-          
+
           // Record history for undo
           if (!isUndoRedoAction.current && objectsToDelete.length > 0) {
             if (objectsToDelete.length === 1) {
