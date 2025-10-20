@@ -72,6 +72,7 @@ function Canvas() {
   const [isPanning, setIsPanning] = useState(false)
   const [isAIChatOpen, setIsAIChatOpen] = useState(false)
   const [showGrid, setShowGrid] = useState(true)
+  const [snapToGrid, setSnapToGrid] = useState(false)
   const [isTemplateSelectorOpen, setIsTemplateSelectorOpen] = useState(false)
 
   const containerRef = useRef<HTMLDivElement>(null)
@@ -395,13 +396,17 @@ function Canvas() {
 
     console.log(`📄 Loading template: ${template.name}`)
 
+    // Calculate offset to prevent template overlap
+    // Each template gets a 100px diagonal offset from the previous one
+    const templateOffset = Math.floor(objects.length / 10) * 100
+
     // Create all template objects on the canvas
     template.objects.forEach((obj) => {
       const newObject: CanvasObject = {
         id: crypto.randomUUID(),
         type: obj.type,
-        x: obj.x,
-        y: obj.y,
+        x: obj.x + templateOffset,
+        y: obj.y + templateOffset,
         width: obj.width,
         height: obj.height,
         rotation: obj.rotation,
@@ -418,7 +423,7 @@ function Canvas() {
       wsClient.createObject(newObject)
     })
 
-    console.log(`✅ Loaded template "${template.name}" with ${template.objects.length} objects`)
+    console.log(`✅ Loaded template "${template.name}" with ${template.objects.length} objects at offset (${templateOffset}, ${templateOffset})`)
   }, [user, isAuthenticated, isViewer, objects.length])
 
   // Undo/Redo handlers (simplified - tracks object snapshots)
@@ -1133,6 +1138,11 @@ function Canvas() {
         e.preventDefault()
         setShowGrid(prev => !prev)
       }
+      // S: toggle snap to grid
+      else if (e.key === 's' || e.key === 'S') {
+        e.preventDefault()
+        setSnapToGrid(prev => !prev)
+      }
       // F: fit all objects
       else if (e.key === 'f' || e.key === 'F') {
         e.preventDefault()
@@ -1207,6 +1217,8 @@ function Canvas() {
         onCreateRandomObjects={handleCreateRandomObjects}
         showGrid={showGrid}
         onToggleGrid={() => setShowGrid(!showGrid)}
+        snapToGrid={snapToGrid}
+        onToggleSnap={() => setSnapToGrid(!snapToGrid)}
         isPanning={isPanning}
         onTogglePan={() => setIsPanning(!isPanning)}
         onFitAll={handleFitAll}
@@ -1243,6 +1255,7 @@ function Canvas() {
           isPanning={isPanning}
           onPositionChange={setPosition}
           showGrid={showGrid}
+          snapToGrid={snapToGrid}
           isViewer={isViewer}
         />
         <CursorOverlay

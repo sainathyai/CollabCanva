@@ -16,6 +16,7 @@ interface KonvaCanvasProps {
   isPanning: boolean;
   onPositionChange: (position: { x: number; y: number }) => void;
   showGrid?: boolean;
+  snapToGrid?: boolean;
   isViewer?: boolean;
 }
 
@@ -36,11 +37,18 @@ export const KonvaCanvas = forwardRef<KonvaCanvasHandle, KonvaCanvasProps>(({
   position,
   isPanning,
   onPositionChange,
-  showGrid = true
+  showGrid = true,
+  snapToGrid = false
 }, ref) => {
   const stageRef = useRef<Konva.Stage>(null);
   const layerRef = useRef<Konva.Layer>(null);
   const dragStartPositions = useRef<Map<string, { x: number; y: number }>>(new Map());
+
+  // Snap helper function - snaps coordinates to nearest grid intersection (50px major grid)
+  const snapCoordinate = (value: number, gridSize: number = 50): number => {
+    if (!snapToGrid) return value;
+    return Math.round(value / gridSize) * gridSize;
+  };
 
   // Expose stage ref to parent for export functionality
   useImperativeHandle(ref, () => ({
@@ -315,10 +323,18 @@ export const KonvaCanvas = forwardRef<KonvaCanvasHandle, KonvaCanvasProps>(({
     selectedIds.forEach(selectedId => {
       const selectedNode = stage.findOne(`#${selectedId}`);
       if (selectedNode) {
-        onTransform(selectedId, {
-          x: selectedNode.x(),
-          y: selectedNode.y()
-        });
+        // Apply snap to grid if enabled
+        const x = snapCoordinate(selectedNode.x());
+        const y = snapCoordinate(selectedNode.y());
+
+        // Update node position if snapped
+        if (snapToGrid) {
+          selectedNode.x(x);
+          selectedNode.y(y);
+          selectedNode.getLayer()?.batchDraw();
+        }
+
+        onTransform(selectedId, { x, y });
       }
     });
 

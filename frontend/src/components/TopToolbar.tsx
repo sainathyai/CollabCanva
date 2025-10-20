@@ -16,6 +16,8 @@ interface TopToolbarProps {
   onCreateRandomObjects: (count: number) => void
   showGrid: boolean
   onToggleGrid: () => void
+  snapToGrid: boolean
+  onToggleSnap: () => void
   isPanning: boolean
   onTogglePan: () => void
   onFitAll: () => void
@@ -46,6 +48,8 @@ const TopToolbar: FC<TopToolbarProps> = ({
   onCreateRandomObjects,
   showGrid,
   onToggleGrid,
+  snapToGrid,
+  onToggleSnap,
   isPanning,
   onTogglePan,
   onFitAll,
@@ -213,6 +217,23 @@ const TopToolbar: FC<TopToolbarProps> = ({
               </svg>
             </button>
             <span className="top-tool-label">Grid</span>
+          </div>
+
+          <div className="top-tool-item">
+            <button
+              className={`top-tool-btn ${snapToGrid ? 'active' : ''}`}
+              onClick={onToggleSnap}
+              title="Snap to Grid (S)"
+            >
+              <svg width="35" height="35" viewBox="0 0 32 32">
+                <rect x="8" y="8" width="7" height="7" fill="none" stroke="currentColor" strokeWidth="2" />
+                <rect x="17" y="8" width="7" height="7" fill="none" stroke="currentColor" strokeWidth="2" />
+                <rect x="8" y="17" width="7" height="7" fill="none" stroke="currentColor" strokeWidth="2" />
+                <rect x="17" y="17" width="7" height="7" fill="none" stroke="currentColor" strokeWidth="2" />
+                <circle cx="16" cy="16" r="3" fill="currentColor" />
+              </svg>
+            </button>
+            <span className="top-tool-label">Snap</span>
           </div>
 
           <div className="top-tool-item">
