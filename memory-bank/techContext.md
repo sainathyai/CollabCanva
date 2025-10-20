@@ -17,11 +17,15 @@
 - **Language**: TypeScript 5.3.3
 - **WebSocket**: ws ^8.16.0
 - **Auth Verification**: firebase-admin ^12.0.0
+- **Cache Client**: ioredis ^5.3.2
 - **Build**: TypeScript Compiler (tsc)
 
 ### Infrastructure
-- **Frontend Hosting**: Vercel (free tier)
-- **Backend Hosting**: Render (free tier)
+- **Frontend Hosting**: AWS Amplify (us-east-2)
+- **Backend Hosting**: AWS ECS Fargate (us-east-2)
+- **Load Balancer**: AWS ALB with sticky sessions
+- **Cache**: AWS ElastiCache Redis (us-east-2)
+- **Database**: AWS DynamoDB
 - **Authentication**: Firebase Authentication
 - **Version Control**: Git + GitHub
 
@@ -55,9 +59,12 @@ VITE_FIREBASE_APP_ID=...
 ```bash
 PORT=8080
 ALLOWED_ORIGINS=http://localhost:5173       # Local dev
-# ALLOWED_ORIGINS=https://collab-canva-jdte.vercel.app  # Production
+# ALLOWED_ORIGINS=https://collabcanva.sainathyai.com  # Production
 FIREBASE_PROJECT_ID=collabcanva-730db
 NODE_ENV=development                         # or production
+AWS_REGION=us-east-2                         # AWS services region
+DYNAMODB_TABLE_PREFIX=collabcanvas          # DynamoDB table prefix
+REDIS_URL=redis://collabcanvas-redis-us2.wda3jc.0001.use2.cache.amazonaws.com:6379  # ElastiCache Redis
 ```
 
 ### Local Development Commands
