@@ -6,13 +6,13 @@ import type { CanvasObject } from '../types';
 export const canvasFunctions = [
   {
     name: 'load_template',
-    description: 'Load a predefined template onto the canvas. Templates include animals (cat, dog, bird, fish), humans (stick-figure, emoji-face, simple-person), objects (house, tree, car, sun, rocket, flower), and scenes. Use this when user asks to "create a cat", "add a house", "draw a person", etc.',
+    description: 'Load a predefined template onto the canvas. Templates include animals (cat, dog, bird, fish, rabbit, butterfly, bear), humans (stick-figure, emoji-face, simple-person), objects (house, tree, car, sun, rocket, flower, heart, cloud, moon, rainbow), and scenes (park-scene, city-scene, beach-scene). Use this when user asks to "create a cat", "add a house", "draw a person", "make a heart", etc.',
     parameters: {
       type: 'object',
       properties: {
         templateName: {
           type: 'string',
-          enum: ['cat', 'dog', 'bird', 'fish', 'stick-figure', 'emoji-face', 'simple-person', 'house', 'tree', 'car', 'sun', 'rocket', 'flower', 'rainbow', 'park-scene', 'beach-scene'],
+          enum: ['cat', 'dog', 'bird', 'fish', 'rabbit', 'butterfly', 'bear', 'stick-figure', 'emoji-face', 'simple-person', 'house', 'tree', 'car', 'sun', 'rocket', 'flower', 'heart', 'cloud', 'moon', 'rainbow', 'park-scene', 'city-scene', 'beach-scene'],
           description: 'The name of the template to load'
         },
         x: {

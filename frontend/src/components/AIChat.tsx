@@ -58,8 +58,12 @@ export function AIChat({ context, onExecuteFunction, isOpen, onToggle }: AIChatP
 
   const exampleCommands = [
     'Create a cat 🐱',
-    'Draw a house',
-    'Add a stick figure person',
+    'Draw a rabbit 🐰',
+    'Add a butterfly 🦋',
+    'Make a heart ❤️',
+    'Create a beach scene 🏖️',
+    'Draw a rocket 🚀',
+    'Add a rainbow 🌈',
     'Export canvas as PNG',
     'Generate 10 random objects',
     'Create 5 blue circles',
