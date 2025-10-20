@@ -397,9 +397,21 @@ function Canvas() {
 
     // Create all template objects on the canvas
     template.objects.forEach((obj) => {
-      const newObject: Omit<CanvasObject, 'id' | 'createdAt' | 'updatedAt'> = {
-        ...obj,
-        userId: user.uid
+      const newObject: CanvasObject = {
+        id: crypto.randomUUID(),
+        type: obj.type,
+        x: obj.x,
+        y: obj.y,
+        width: obj.width,
+        height: obj.height,
+        rotation: obj.rotation,
+        color: obj.color,
+        zIndex: objects.length,
+        text: obj.text,
+        fontSize: obj.type === 'text' ? 16 : undefined,
+        points: obj.points,
+        createdBy: user.uid,
+        createdAt: new Date().toISOString()
       }
 
       // Send to server via WebSocket
@@ -407,7 +419,7 @@ function Canvas() {
     })
 
     console.log(`✅ Loaded template "${template.name}" with ${template.objects.length} objects`)
-  }, [user, isAuthenticated, isViewer])
+  }, [user, isAuthenticated, isViewer, objects.length])
 
   // Undo/Redo handlers (simplified - tracks object snapshots)
   const handleUndo = useCallback(() => {
