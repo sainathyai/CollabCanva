@@ -46,13 +46,14 @@ export function AIChat({ context, onExecuteFunction, isOpen, onToggle }: AIChatP
     if (!sidebar) return;
 
     const handleWheel = (e: WheelEvent) => {
-      // Stop event from reaching canvas (prevents zoom)
-      // But DON'T preventDefault() to allow normal scrolling
+      // Always stop propagation to prevent canvas zoom
       e.stopPropagation();
+      // Allow the default scroll behavior for the chat
     };
 
-    sidebar.addEventListener('wheel', handleWheel);
-    return () => sidebar.removeEventListener('wheel', handleWheel);
+    // Use capture phase to intercept events before they reach canvas
+    sidebar.addEventListener('wheel', handleWheel, { passive: false, capture: true });
+    return () => sidebar.removeEventListener('wheel', handleWheel, { capture: true });
   }, []);
 
   const exampleCommands = [
