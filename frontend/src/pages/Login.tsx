@@ -1,24 +1,43 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { signInWithGoogle } from '../lib/auth'
+import { signInWithGoogle, handleAuthRedirect } from '../lib/auth'
 
 function Login() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const navigate = useNavigate()
 
+  // Handle redirect result when component mounts
+  useEffect(() => {
+    const checkAuthRedirect = async () => {
+      setLoading(true)
+      try {
+        const user = await handleAuthRedirect()
+        if (user) {
+          // Successfully signed in via redirect
+          navigate('/canvas')
+        }
+      } catch (err) {
+        console.error('Auth redirect error:', err)
+        setError('Failed to complete sign in. Please try again.')
+      } finally {
+        setLoading(false)
+      }
+    }
+
+    checkAuthRedirect()
+  }, [navigate])
+
   const handleGoogleSignIn = async () => {
     setLoading(true)
     setError(null)
     
     try {
+      // This will redirect to Google (no return, user leaves page)
       await signInWithGoogle()
-      // Redirect to canvas on successful sign-in
-      navigate('/canvas')
     } catch (err) {
       console.error('Sign in error:', err)
       setError('Failed to sign in with Google. Please try again.')
-    } finally {
       setLoading(false)
     }
   }
