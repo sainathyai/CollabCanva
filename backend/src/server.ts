@@ -6,6 +6,7 @@ import { metricsHandler } from './http/metrics.js'
 import { projectsHandler } from './http/projects.js'
 import { setupWebSocket } from './ws/index.js'
 import { initializeDatabase } from './db/dynamodb.js'
+import { initializeRedis, closeRedis } from './db/redis.js'
 import { loadFromDatabase, DEFAULT_PROJECT_ID } from './state/canvasState.js'
 import { startAutoSaveWorker, stopAutoSaveWorker } from './workers/autoSaveWorker.js'
 
@@ -55,12 +56,21 @@ setupWebSocket(server)
 async function initializeServer() {
   logger.info('🚀 Initializing CollabCanvas server...')
 
+  // Initialize Redis cache
+  try {
+    await initializeRedis(env.REDIS_URL)
+    logger.info('✅ Redis cache initialized')
+  } catch (error) {
+    logger.error('⚠️  Redis initialization failed:', error)
+    logger.warn('⚠️  Server will run with in-memory fallback')
+  }
+
   // Initialize DynamoDB connection
   try {
     await initializeDatabase()
     logger.info('✅ Database initialization complete')
 
-    // Load existing objects from database into memory (default project for backward compatibility)
+    // Load existing objects from database into Redis/memory (default project for backward compatibility)
     const loadedCount = await loadFromDatabase(DEFAULT_PROJECT_ID)
     if (loadedCount > 0) {
       logger.info(`📦 Loaded ${loadedCount} objects from database`)
@@ -69,7 +79,7 @@ async function initializeServer() {
     }
   } catch (error) {
     logger.error('⚠️  Database initialization failed:', error)
-    logger.warn('⚠️  Server will run in memory-only mode')
+    logger.warn('⚠️  Server will run in cache/memory-only mode')
     logger.warn('⚠️  Data will NOT persist across restarts')
   }
 
@@ -100,18 +110,20 @@ initializeServer().catch(err => {
 })
 
 // Graceful shutdown
-process.on('SIGTERM', () => {
+process.on('SIGTERM', async () => {
   logger.info('SIGTERM received, closing server gracefully')
   stopAutoSaveWorker()
+  await closeRedis()
   server.close(() => {
     logger.info('Server closed')
     process.exit(0)
   })
 })
 
-process.on('SIGINT', () => {
+process.on('SIGINT', async () => {
   logger.info('SIGINT received, closing server gracefully')
   stopAutoSaveWorker()
+  await closeRedis()
   server.close(() => {
     logger.info('Server closed')
     process.exit(0)
