@@ -1397,10 +1397,11 @@ function Canvas() {
             }
 
             // Calculate center position if not specified
-            // Add random offset (±100px) to prevent stacking when creating multiple templates
-            const randomOffsetX = (Math.random() - 0.5) * 200; // -100 to +100
-            const randomOffsetY = (Math.random() - 0.5) * 200; // -100 to +100
-            
+            // Add large random offset (±300px) to prevent overlap when creating multiple templates
+            // Most templates are ~300px in size, so 600px total range ensures no overlap
+            const randomOffsetX = (Math.random() - 0.5) * 600; // -300 to +300
+            const randomOffsetY = (Math.random() - 0.5) * 600; // -300 to +300
+
             const viewportCenterX = targetX !== undefined ? targetX :
               ((-position.x + stageSize.width / 2) / scale) + randomOffsetX;
             const viewportCenterY = targetY !== undefined ? targetY :
