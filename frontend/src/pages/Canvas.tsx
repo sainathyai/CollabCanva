@@ -450,10 +450,12 @@ function Canvas() {
     alert('Redo feature coming soon!')
   }, [])
 
-  // Update undo/redo button states
+  // Update undo/redo button states (simplified until full implementation)
   useEffect(() => {
-    setCanUndo(historyManager.current.canUndo())
-    setCanRedo(historyManager.current.canRedo())
+    // Enable undo if there are objects (full history tracking coming soon)
+    setCanUndo(objects.length > 0)
+    // Redo always disabled for now (full history tracking coming soon)
+    setCanRedo(false)
   }, [objects])
 
   // Align selected objects to center
@@ -463,7 +465,7 @@ function Canvas() {
     }
 
     const selectedObjects = objects.filter(obj => selectedIds.has(obj.id))
-    
+
     // Calculate center point of all selected objects
     const bounds = selectedObjects.reduce(
       (acc, obj) => ({
@@ -482,7 +484,7 @@ function Canvas() {
     selectedObjects.forEach(obj => {
       const newX = centerX - (obj.width || 0) / 2
       const newY = centerY - (obj.height || 0) / 2
-      
+
       wsClient.updateObject({
         id: obj.id,
         x: newX,
