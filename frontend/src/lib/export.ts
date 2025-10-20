@@ -51,7 +51,7 @@ export const exportCanvasToPNG = async (
 
     // Convert canvas to blob
     canvas.toBlob(
-      (blob) => {
+      (blob: Blob | null) => {
         if (!blob) {
           throw new Error('Failed to generate image blob')
         }
