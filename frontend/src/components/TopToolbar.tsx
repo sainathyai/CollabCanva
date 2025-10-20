@@ -21,6 +21,10 @@ interface TopToolbarProps {
   onFitAll: () => void
   onExportPNG: () => void
   onOpenTemplates: () => void
+  canUndo: boolean
+  canRedo: boolean
+  onUndo: () => void
+  onRedo: () => void
 }
 
 /**
@@ -46,7 +50,11 @@ const TopToolbar: FC<TopToolbarProps> = ({
   onTogglePan,
   onFitAll,
   onExportPNG,
-  onOpenTemplates
+  onOpenTemplates,
+  canUndo,
+  canRedo,
+  onUndo,
+  onRedo
 }) => {
   const isDisabled = !isAuthenticated || isViewer
   const [randomCount, setRandomCount] = useState(5)
@@ -62,6 +70,36 @@ const TopToolbar: FC<TopToolbarProps> = ({
       <div className="top-toolbar-section">
         <span className="top-toolbar-label">Edit</span>
         <div className="top-toolbar-group">
+          <div className="top-tool-item">
+            <button
+              className="top-tool-btn"
+              onClick={onUndo}
+              disabled={!canUndo || isDisabled}
+              title={isViewer ? "Viewers cannot undo" : "Undo (Cmd+Z)"}
+            >
+              <svg width="35" height="35" viewBox="0 0 32 32">
+                <path d="M20 10 L10 16 L20 22" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                <path d="M10 16 L24 16" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+              </svg>
+            </button>
+            <span className="top-tool-label">Undo</span>
+          </div>
+
+          <div className="top-tool-item">
+            <button
+              className="top-tool-btn"
+              onClick={onRedo}
+              disabled={!canRedo || isDisabled}
+              title={isViewer ? "Viewers cannot redo" : "Redo (Cmd+Shift+Z)"}
+            >
+              <svg width="35" height="35" viewBox="0 0 32 32">
+                <path d="M12 10 L22 16 L12 22" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                <path d="M22 16 L8 16" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+              </svg>
+            </button>
+            <span className="top-tool-label">Redo</span>
+          </div>
+
           <div className="top-tool-item">
             <button
               className="top-tool-btn"

@@ -15,6 +15,7 @@ import { exportCanvasToPNGNative } from '../lib/export'
 import type { KonvaCanvasHandle } from '../components/KonvaCanvas'
 import { TemplateSelector } from '../components/TemplateSelector'
 import type { Template } from '../lib/templates'
+import { HistoryManager } from '../lib/history'
 
 // Helper function to generate user colors
 const getUserColor = (userId: string): string => {
@@ -76,6 +77,9 @@ function Canvas() {
   const containerRef = useRef<HTMLDivElement>(null)
   const canvasRef = useRef<KonvaCanvasHandle>(null)
   const lastCursorUpdate = useRef<number>(0)
+  const historyManager = useRef(new HistoryManager(50))
+  const [canUndo, setCanUndo] = useState(false)
+  const [canRedo, setCanRedo] = useState(false)
 
   // Load project details
   useEffect(() => {
@@ -404,6 +408,25 @@ function Canvas() {
 
     console.log(`✅ Loaded template "${template.name}" with ${template.objects.length} objects`)
   }, [user, isAuthenticated, isViewer])
+
+  // Undo/Redo handlers (simplified - tracks object snapshots)
+  const handleUndo = useCallback(() => {
+    console.log('↩️ Undo requested (feature coming soon)')
+    // TODO: Implement full undo with history manager
+    alert('Undo feature coming soon! Use Delete to remove objects for now.')
+  }, [])
+
+  const handleRedo = useCallback(() => {
+    console.log('↪️ Redo requested (feature coming soon)')
+    // TODO: Implement full redo with history manager
+    alert('Redo feature coming soon!')
+  }, [])
+
+  // Update undo/redo button states
+  useEffect(() => {
+    setCanUndo(historyManager.current.canUndo())
+    setCanRedo(historyManager.current.canRedo())
+  }, [objects])
 
   const handleCreateRandomObjects = useCallback((count: number) => {
     if (!user) {
@@ -1043,8 +1066,18 @@ function Canvas() {
         return
       }
 
+      // Cmd+Z / Ctrl+Z: undo
+      if ((e.metaKey || e.ctrlKey) && e.key === 'z' && !e.shiftKey) {
+        e.preventDefault()
+        handleUndo()
+      }
+      // Cmd+Shift+Z / Ctrl+Shift+Z: redo
+      else if ((e.metaKey || e.ctrlKey) && e.key === 'z' && e.shiftKey) {
+        e.preventDefault()
+        handleRedo()
+      }
       // Space: enable panning mode
-      if (e.key === ' ' && !isPanning) {
+      else if (e.key === ' ' && !isPanning) {
         e.preventDefault()
         setIsPanning(true)
         document.body.style.cursor = 'grab'
@@ -1167,6 +1200,10 @@ function Canvas() {
         onFitAll={handleFitAll}
         onExportPNG={handleExportPNG}
         onOpenTemplates={() => setIsTemplateSelectorOpen(true)}
+        canUndo={canUndo}
+        canRedo={canRedo}
+        onUndo={handleUndo}
+        onRedo={handleRedo}
       />
 
       <Toolbar
