@@ -11,7 +11,7 @@ export interface Template {
   description: string
   category: 'animal' | 'human' | 'object' | 'scene'
   thumbnail: string // Emoji for quick reference
-  objects: Omit<CanvasObject, 'id' | 'userId' | 'createdAt' | 'updatedAt'>[]
+  objects: Omit<CanvasObject, 'id' | 'userId' | 'createdAt' | 'updatedAt' | 'zIndex' | 'createdBy'>[]
 }
 
 /**
