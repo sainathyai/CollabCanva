@@ -16,7 +16,7 @@ import type { KonvaCanvasHandle } from '../components/KonvaCanvas'
 import { TemplateSelector } from '../components/TemplateSelector'
 import type { Template } from '../lib/templates'
 import { ShortcutsHelp } from '../components/ShortcutsHelp'
-// import { HistoryManager } from '../lib/history' // TODO: Re-enable for full undo/redo implementation
+import { HistoryManager, createHistoryAction } from '../lib/history'
 
 // Helper function to generate user colors
 const getUserColor = (userId: string): string => {
@@ -82,10 +82,13 @@ function Canvas() {
   const containerRef = useRef<HTMLDivElement>(null)
   const canvasRef = useRef<KonvaCanvasHandle>(null)
   const lastCursorUpdate = useRef<number>(0)
-  // const historyManager = useRef(new HistoryManager(50)) // TODO: Re-enable for full undo/redo
+  const historyManager = useRef(new HistoryManager(50))
   const [canUndo, setCanUndo] = useState(false)
   const [canRedo, setCanRedo] = useState(false)
   const lastSavedObjects = useRef<CanvasObject[]>([])
+  
+  // Track if action is from undo/redo to prevent double-recording
+  const isUndoRedoAction = useRef(false)
 
   // Load project details
   useEffect(() => {
@@ -312,6 +315,11 @@ function Canvas() {
     }
 
     wsClient.createObject(newObject)
+    
+    // Record history for undo
+    if (!isUndoRedoAction.current) {
+      historyManager.current.addAction(createHistoryAction.create(newObject))
+    }
   }
 
   // Wrapper for backward compatibility
@@ -432,6 +440,11 @@ function Canvas() {
 
       // Send to server via WebSocket
       wsClient.createObject(newObject)
+      
+      // Record history for undo
+      if (!isUndoRedoAction.current) {
+        historyManager.current.addAction(createHistoryAction.create(newObject))
+      }
     })
 
     console.log(`✅ Loaded template "${template.name}" with ${template.objects.length} objects at offset (${offsetX}, ${offsetY})`)
@@ -439,24 +452,140 @@ function Canvas() {
 
   // Undo/Redo handlers (simplified - tracks object snapshots)
   const handleUndo = useCallback(() => {
-    console.log('↩️ Undo requested (feature coming soon)')
-    // TODO: Implement full undo with history manager
-    alert('Undo feature coming soon! Use Delete to remove objects for now.')
-  }, [])
+    if (!isAuthenticated || isViewer) {
+      alert('You do not have permission to undo')
+      return
+    }
+
+    const action = historyManager.current.undo()
+    if (!action) {
+      console.log('⚠️ Nothing to undo')
+      return
+    }
+
+    // Mark as undo action to prevent re-recording
+    isUndoRedoAction.current = true
+
+    try {
+      switch (action.type) {
+        case 'create':
+          // Undo create = delete the object
+          if (action.object) {
+            wsClient.deleteObject(action.object.id)
+            console.log(`↩️ Undo CREATE: Deleted object ${action.object.id}`)
+          }
+          break
+
+        case 'delete':
+          // Undo delete = recreate the object
+          if (action.object) {
+            wsClient.createObject(action.object)
+            console.log(`↩️ Undo DELETE: Recreated object ${action.object.id}`)
+          }
+          break
+
+        case 'batch_delete':
+          // Undo batch delete = recreate all objects
+          if (action.objects) {
+            action.objects.forEach(obj => wsClient.createObject(obj))
+            console.log(`↩️ Undo BATCH_DELETE: Recreated ${action.objects.length} objects`)
+          }
+          break
+
+        case 'modify':
+        case 'move':
+          // Undo modify/move = restore "before" state
+          if (action.objectId && action.before) {
+            wsClient.updateObject({
+              id: action.objectId,
+              ...action.before
+            })
+            console.log(`↩️ Undo ${action.type.toUpperCase()}: Restored object ${action.objectId}`)
+          }
+          break
+      }
+
+      // Update button states
+      setCanUndo(historyManager.current.canUndo())
+      setCanRedo(historyManager.current.canRedo())
+    } finally {
+      // Reset flag after a short delay (let WebSocket message process)
+      setTimeout(() => {
+        isUndoRedoAction.current = false
+      }, 100)
+    }
+  }, [isAuthenticated, isViewer])
 
   const handleRedo = useCallback(() => {
-    console.log('↪️ Redo requested (feature coming soon)')
-    // TODO: Implement full redo with history manager
-    alert('Redo feature coming soon!')
-  }, [])
+    if (!isAuthenticated || isViewer) {
+      alert('You do not have permission to redo')
+      return
+    }
 
-  // Update undo/redo button states (simplified until full implementation)
+    const action = historyManager.current.redo()
+    if (!action) {
+      console.log('⚠️ Nothing to redo')
+      return
+    }
+
+    // Mark as redo action to prevent re-recording
+    isUndoRedoAction.current = true
+
+    try {
+      switch (action.type) {
+        case 'create':
+          // Redo create = recreate the object
+          if (action.object) {
+            wsClient.createObject(action.object)
+            console.log(`↪️ Redo CREATE: Recreated object ${action.object.id}`)
+          }
+          break
+
+        case 'delete':
+          // Redo delete = delete the object again
+          if (action.object) {
+            wsClient.deleteObject(action.object.id)
+            console.log(`↪️ Redo DELETE: Deleted object ${action.object.id}`)
+          }
+          break
+
+        case 'batch_delete':
+          // Redo batch delete = delete all objects again
+          if (action.objects) {
+            action.objects.forEach(obj => wsClient.deleteObject(obj.id))
+            console.log(`↪️ Redo BATCH_DELETE: Deleted ${action.objects.length} objects`)
+          }
+          break
+
+        case 'modify':
+        case 'move':
+          // Redo modify/move = restore "after" state
+          if (action.objectId && action.after) {
+            wsClient.updateObject({
+              id: action.objectId,
+              ...action.after
+            })
+            console.log(`↪️ Redo ${action.type.toUpperCase()}: Applied object ${action.objectId}`)
+          }
+          break
+      }
+
+      // Update button states
+      setCanUndo(historyManager.current.canUndo())
+      setCanRedo(historyManager.current.canRedo())
+    } finally {
+      // Reset flag after a short delay (let WebSocket message process)
+      setTimeout(() => {
+        isUndoRedoAction.current = false
+      }, 100)
+    }
+  }, [isAuthenticated, isViewer])
+
+  // Update undo/redo button states based on history
   useEffect(() => {
-    // Enable undo if there are objects (full history tracking coming soon)
-    setCanUndo(objects.length > 0)
-    // Redo always disabled for now (full history tracking coming soon)
-    setCanRedo(false)
-  }, [objects])
+    setCanUndo(historyManager.current.canUndo())
+    setCanRedo(historyManager.current.canRedo())
+  }, [objects]) // Update when objects change (indicates history might have changed)
 
   // Align selected objects to center
   const handleAlignCenter = useCallback(() => {
@@ -484,12 +613,21 @@ function Canvas() {
     selectedObjects.forEach(obj => {
       const newX = centerX - (obj.width || 0) / 2
       const newY = centerY - (obj.height || 0) / 2
-
+      
       wsClient.updateObject({
         id: obj.id,
         x: newX,
         y: newY
       })
+      
+      // Record history for undo
+      if (!isUndoRedoAction.current) {
+        historyManager.current.addAction(createHistoryAction.move(
+          obj.id,
+          { x: obj.x, y: obj.y },
+          { x: newX, y: newY }
+        ))
+      }
     })
 
     console.log(`✅ Aligned ${selectedObjects.length} objects to center`)
@@ -591,6 +729,11 @@ function Canvas() {
         object: newObject,
         timestamp: new Date().toISOString()
       })
+      
+      // Record history for undo
+      if (!isUndoRedoAction.current) {
+        historyManager.current.addAction(createHistoryAction.create(newObject))
+      }
     }
   }, [user, isAuthenticated, stageSize, objects.length, scale, position])
 
@@ -601,11 +744,41 @@ function Canvas() {
 
   // Handle object transform from Konva (drag, resize, rotate)
   const handleTransform = (id: string, attrs: Partial<CanvasObject>) => {
+    // Get object's current state before transformation (for history)
+    const obj = objects.find(o => o.id === id)
+    const before: Partial<CanvasObject> = {}
+    const after: Partial<CanvasObject> = {}
+    
+    if (obj && !isUndoRedoAction.current) {
+      // Capture changed attributes
+      Object.keys(attrs).forEach(key => {
+        const k = key as keyof CanvasObject
+        if (obj[k] !== attrs[k]) {
+          before[k] = obj[k] as any
+          after[k] = attrs[k] as any
+        }
+      })
+    }
+    
     wsClient.updateObject({
       id,
       ...attrs,
       updatedAt: new Date().toISOString()
     })
+    
+    // Record history for undo (choose type based on what changed)
+    if (!isUndoRedoAction.current && obj && Object.keys(before).length > 0) {
+      const actionType = (attrs.x !== undefined || attrs.y !== undefined) ? 'move' : 'modify'
+      if (actionType === 'move') {
+        historyManager.current.addAction(createHistoryAction.move(
+          id,
+          { x: obj.x, y: obj.y },
+          { x: attrs.x ?? obj.x, y: attrs.y ?? obj.y }
+        ))
+      } else {
+        historyManager.current.addAction(createHistoryAction.modify(id, before, after))
+      }
+    }
   }
 
   // Handle mouse move for cursor tracking
@@ -645,6 +818,11 @@ function Canvas() {
         createdAt: new Date().toISOString()
       }
       wsClient.createObject(duplicate)
+      
+      // Record history for undo
+      if (!isUndoRedoAction.current) {
+        historyManager.current.addAction(createHistoryAction.create(duplicate))
+      }
     })
   }
 
@@ -653,11 +831,23 @@ function Canvas() {
     if (!isAuthenticated) return
 
     selectedIds.forEach(id => {
+      // Get object's current color before changing (for history)
+      const obj = objects.find(o => o.id === id)
+      
       wsClient.updateObject({
         id,
         color,
         updatedAt: new Date().toISOString()
       })
+      
+      // Record history for undo
+      if (!isUndoRedoAction.current && obj && obj.color !== color) {
+        historyManager.current.addAction(createHistoryAction.modify(
+          id,
+          { color: obj.color },
+          { color }
+        ))
+      }
     })
   }
 
@@ -668,10 +858,22 @@ function Canvas() {
       return
     }
 
+    // Get full objects before deleting (for history)
+    const objectsToDelete = objects.filter(obj => selectedIds.has(obj.id))
+
     selectedIds.forEach(id => {
       wsClient.deleteObject(id)
     })
     setSelectedIds(new Set())
+    
+    // Record history for undo
+    if (!isUndoRedoAction.current && objectsToDelete.length > 0) {
+      if (objectsToDelete.length === 1) {
+        historyManager.current.addAction(createHistoryAction.delete(objectsToDelete[0]))
+      } else {
+        historyManager.current.addAction(createHistoryAction.batchDelete(objectsToDelete))
+      }
+    }
   }
 
   // Copy selected objects to clipboard
@@ -975,6 +1177,16 @@ function Canvas() {
             wsClient.deleteObject(obj.id);
           });
           setSelectedIds(new Set());
+          
+          // Record history for undo
+          if (!isUndoRedoAction.current && targetObjects.length > 0) {
+            if (targetObjects.length === 1) {
+              historyManager.current.addAction(createHistoryAction.delete(targetObjects[0]))
+            } else {
+              historyManager.current.addAction(createHistoryAction.batchDelete(targetObjects))
+            }
+          }
+          
           console.log(`Deleted ${targetObjects.length} object(s)`);
           break;
         }
@@ -1103,6 +1315,11 @@ function Canvas() {
                 createdAt: new Date().toISOString()
               };
               wsClient.createObject(duplicate);
+              
+              // Record history for undo
+              if (!isUndoRedoAction.current) {
+                historyManager.current.addAction(createHistoryAction.create(duplicate))
+              }
             }
           });
           console.log(`Duplicated ${targetObjects.length} object(s) ${count} time(s)`);
@@ -1130,6 +1347,15 @@ function Canvas() {
           objectsToDelete.forEach(obj => {
             wsClient.deleteObject(obj.id);
           });
+          
+          // Record history for undo
+          if (!isUndoRedoAction.current && objectsToDelete.length > 0) {
+            if (objectsToDelete.length === 1) {
+              historyManager.current.addAction(createHistoryAction.delete(objectsToDelete[0]))
+            } else {
+              historyManager.current.addAction(createHistoryAction.batchDelete(objectsToDelete))
+            }
+          }
 
           console.log(`✅ Randomly deleted ${deleteCount} object(s) from canvas`);
           break;
