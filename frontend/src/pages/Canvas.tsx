@@ -15,8 +15,8 @@ import { exportCanvasToPNGNative } from '../lib/export'
 import type { KonvaCanvasHandle } from '../components/KonvaCanvas'
 import { TemplateSelector } from '../components/TemplateSelector'
 import type { Template } from '../lib/templates'
-import { HistoryManager } from '../lib/history'
 import { ShortcutsHelp } from '../components/ShortcutsHelp'
+// import { HistoryManager } from '../lib/history' // TODO: Re-enable for full undo/redo implementation
 
 // Helper function to generate user colors
 const getUserColor = (userId: string): string => {
@@ -82,7 +82,7 @@ function Canvas() {
   const containerRef = useRef<HTMLDivElement>(null)
   const canvasRef = useRef<KonvaCanvasHandle>(null)
   const lastCursorUpdate = useRef<number>(0)
-  const historyManager = useRef(new HistoryManager(50))
+  // const historyManager = useRef(new HistoryManager(50)) // TODO: Re-enable for full undo/redo
   const [canUndo, setCanUndo] = useState(false)
   const [canRedo, setCanRedo] = useState(false)
   const lastSavedObjects = useRef<CanvasObject[]>([])
