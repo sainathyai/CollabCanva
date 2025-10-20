@@ -11,6 +11,10 @@ import TopToolbar from '../components/TopToolbar'
 import CursorOverlay from '../components/CursorOverlay'
 import { AIChat } from '../components/AIChat'
 import type { AIFunctionName, AIFunctionParams } from '../lib/ai-functions'
+import { exportCanvasToPNGNative } from '../lib/export'
+import type { KonvaCanvasHandle } from '../components/KonvaCanvas'
+import { TemplateSelector } from '../components/TemplateSelector'
+import type { Template } from '../lib/templates'
 
 // Helper function to generate user colors
 const getUserColor = (userId: string): string => {
@@ -67,8 +71,10 @@ function Canvas() {
   const [isPanning, setIsPanning] = useState(false)
   const [isAIChatOpen, setIsAIChatOpen] = useState(false)
   const [showGrid, setShowGrid] = useState(true)
+  const [isTemplateSelectorOpen, setIsTemplateSelectorOpen] = useState(false)
 
   const containerRef = useRef<HTMLDivElement>(null)
+  const canvasRef = useRef<KonvaCanvasHandle>(null)
   const lastCursorUpdate = useRef<number>(0)
 
   // Load project details
@@ -354,6 +360,50 @@ function Canvas() {
     setScale(newScale)
     setPosition({ x: newX, y: newY })
   }, [objects, stageSize])
+
+  // Export canvas to PNG
+  const handleExportPNG = useCallback(() => {
+    const stage = canvasRef.current?.getStage()
+    if (!stage) {
+      console.error('Stage not available for export')
+      return
+    }
+
+    try {
+      const projectName = currentProject?.name || 'canvas'
+      exportCanvasToPNGNative({ current: stage }, {
+        filename: projectName.toLowerCase().replace(/\s+/g, '-'),
+        quality: 1.0
+      })
+      console.log('✅ Canvas exported successfully!')
+    } catch (error) {
+      console.error('Failed to export canvas:', error)
+      alert('Failed to export canvas. Please try again.')
+    }
+  }, [currentProject])
+
+  // Load template onto canvas
+  const handleLoadTemplate = useCallback((template: Template) => {
+    if (!user || !isAuthenticated || isViewer) {
+      alert('You do not have permission to load templates')
+      return
+    }
+
+    console.log(`📄 Loading template: ${template.name}`)
+
+    // Create all template objects on the canvas
+    template.objects.forEach((obj) => {
+      const newObject: Omit<CanvasObject, 'id' | 'createdAt' | 'updatedAt'> = {
+        ...obj,
+        userId: user.uid
+      }
+
+      // Send to server via WebSocket
+      wsClient.createObject(newObject)
+    })
+
+    console.log(`✅ Loaded template "${template.name}" with ${template.objects.length} objects`)
+  }, [user, isAuthenticated, isViewer])
 
   const handleCreateRandomObjects = useCallback((count: number) => {
     if (!user) {
@@ -1115,6 +1165,8 @@ function Canvas() {
         isPanning={isPanning}
         onTogglePan={() => setIsPanning(!isPanning)}
         onFitAll={handleFitAll}
+        onExportPNG={handleExportPNG}
+        onOpenTemplates={() => setIsTemplateSelectorOpen(true)}
       />
 
       <Toolbar
@@ -1130,6 +1182,7 @@ function Canvas() {
         onMouseMove={handleMouseMove}
       >
         <KonvaCanvas
+          ref={canvasRef}
           objects={objects}
           selectedIds={selectedIds}
           onSelect={isViewer ? () => { } : handleSelect}
@@ -1183,6 +1236,13 @@ function Canvas() {
           </div>
         )}
       </div>
+
+      {/* Template Selector Modal */}
+      <TemplateSelector
+        isOpen={isTemplateSelectorOpen}
+        onClose={() => setIsTemplateSelectorOpen(false)}
+        onSelectTemplate={handleLoadTemplate}
+      />
     </div>
   )
 }

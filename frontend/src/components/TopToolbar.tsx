@@ -19,6 +19,8 @@ interface TopToolbarProps {
   isPanning: boolean
   onTogglePan: () => void
   onFitAll: () => void
+  onExportPNG: () => void
+  onOpenTemplates: () => void
 }
 
 /**
@@ -42,7 +44,9 @@ const TopToolbar: FC<TopToolbarProps> = ({
   onToggleGrid,
   isPanning,
   onTogglePan,
-  onFitAll
+  onFitAll,
+  onExportPNG,
+  onOpenTemplates
 }) => {
   const isDisabled = !isAuthenticated || isViewer
   const [randomCount, setRandomCount] = useState(5)
@@ -201,6 +205,41 @@ const TopToolbar: FC<TopToolbarProps> = ({
               </svg>
             </button>
             <span className="top-tool-label">Fit All</span>
+          </div>
+
+          <div className="top-tool-item">
+            <button
+              className="top-tool-btn"
+              onClick={onExportPNG}
+              title="Export Canvas as PNG (Cmd+Shift+E)"
+              disabled={objectCount === 0}
+            >
+              <svg width="35" height="35" viewBox="0 0 32 32">
+                <path d="M16 4 L16 18 M16 18 L12 14 M16 18 L20 14" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                <rect x="6" y="22" width="20" height="6" fill="none" stroke="currentColor" strokeWidth="2" rx="1" />
+                <line x1="10" y1="25" x2="22" y2="25" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+              </svg>
+            </button>
+            <span className="top-tool-label">Export PNG</span>
+          </div>
+
+          <div className="top-tool-item">
+            <button
+              className="top-tool-btn"
+              onClick={onOpenTemplates}
+              title="Load Template (Cmd+Shift+T)"
+              disabled={isDisabled}
+            >
+              <svg width="35" height="35" viewBox="0 0 32 32">
+                <rect x="6" y="6" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2" rx="2" />
+                <line x1="12" y1="12" x2="20" y2="12" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+                <line x1="12" y1="16" x2="18" y2="16" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+                <line x1="12" y1="20" x2="16" y2="20" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+                <circle cx="24" cy="24" r="4" fill="#FFD700" stroke="white" strokeWidth="1.5" />
+                <text x="24" y="27" textAnchor="middle" fontSize="5" fill="white">✨</text>
+              </svg>
+            </button>
+            <span className="top-tool-label">Templates</span>
           </div>
 
         </div>

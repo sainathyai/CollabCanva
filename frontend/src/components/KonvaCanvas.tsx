@@ -1,4 +1,4 @@
-import { useRef, useEffect, useState, useMemo } from 'react';
+import { useRef, useEffect, useState, useMemo, forwardRef, useImperativeHandle } from 'react';
 import { Stage, Layer, Rect, Circle, Line, Text, RegularPolygon, Star, Arrow, Ellipse } from 'react-konva';
 import Konva from 'konva';
 import { CanvasObject } from '../types';
@@ -19,9 +19,13 @@ interface KonvaCanvasProps {
   isViewer?: boolean;
 }
 
+export interface KonvaCanvasHandle {
+  getStage: () => Konva.Stage | null;
+}
+
 // Note: Memoization removed to ensure event handlers work correctly with multi-select drag
 
-export function KonvaCanvas({
+export const KonvaCanvas = forwardRef<KonvaCanvasHandle, KonvaCanvasProps>(({
   objects,
   selectedIds,
   onSelect,
@@ -33,10 +37,16 @@ export function KonvaCanvas({
   isPanning,
   onPositionChange,
   showGrid = true
-}: KonvaCanvasProps) {
+}, ref) => {
   const stageRef = useRef<Konva.Stage>(null);
   const layerRef = useRef<Konva.Layer>(null);
   const dragStartPositions = useRef<Map<string, { x: number; y: number }>>(new Map());
+
+  // Expose stage ref to parent for export functionality
+  useImperativeHandle(ref, () => ({
+    getStage: () => stageRef.current
+  }), []);
+
   const [selectionRect, setSelectionRect] = useState<{ x: number; y: number; width: number; height: number } | null>(null);
   const [isSelecting, setIsSelecting] = useState(false);
   const selectionStart = useRef<{ x: number; y: number } | null>(null);
@@ -778,5 +788,7 @@ export function KonvaCanvas({
       )}
     </>
   );
-}
+})
+
+KonvaCanvas.displayName = 'KonvaCanvas';
 
