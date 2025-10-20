@@ -1397,10 +1397,14 @@ function Canvas() {
             }
 
             // Calculate center position if not specified
+            // Add random offset (±100px) to prevent stacking when creating multiple templates
+            const randomOffsetX = (Math.random() - 0.5) * 200; // -100 to +100
+            const randomOffsetY = (Math.random() - 0.5) * 200; // -100 to +100
+            
             const viewportCenterX = targetX !== undefined ? targetX :
-              (-position.x + stageSize.width / 2) / scale;
+              ((-position.x + stageSize.width / 2) / scale) + randomOffsetX;
             const viewportCenterY = targetY !== undefined ? targetY :
-              (-position.y + stageSize.height / 2) / scale;
+              ((-position.y + stageSize.height / 2) / scale) + randomOffsetY;
 
             // Load all template objects
             const newObjects: CanvasObject[] = template.objects.map((templateObj) => ({
