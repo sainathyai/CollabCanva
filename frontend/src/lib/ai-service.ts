@@ -101,17 +101,21 @@ When users make requests, intelligently choose the right function. Be helpful an
     // Check if AI wants to call a function (new tools format)
     if (choice.message.tool_calls && choice.message.tool_calls.length > 0) {
       const toolCall = choice.message.tool_calls[0];
-      const functionName = toolCall.function.name as AIFunctionName;
-      const parameters = JSON.parse(toolCall.function.arguments);
+      
+      // Type guard: ensure this is a function tool call
+      if (toolCall.type === 'function' && 'function' in toolCall) {
+        const functionName = toolCall.function.name as AIFunctionName;
+        const parameters = JSON.parse(toolCall.function.arguments);
 
-      return {
-        success: true,
-        message: choice.message.content || 'Executing command...',
-        functionCall: {
-          name: functionName,
-          parameters
-        }
-      };
+        return {
+          success: true,
+          message: choice.message.content || 'Executing command...',
+          functionCall: {
+            name: functionName,
+            parameters
+          }
+        };
+      }
     }
 
     // Regular message response (no function call)
