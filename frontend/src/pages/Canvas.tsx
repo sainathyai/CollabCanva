@@ -145,16 +145,17 @@ function Canvas() {
     }
   }, [user, projectId])
 
-  // Handle incoming WebSocket messages
-  const handleWebSocketMessage = (message: WSMessage) => {
+  // Handle incoming WebSocket messages (useCallback to prevent re-subscriptions on refresh)
+  const handleWebSocketMessage = useCallback((message: WSMessage) => {
     console.log('📨 Received message:', message.type)
 
     switch (message.type) {
       case MessageType.INITIAL_STATE:
         if ('objects' in message) {
+          // IMPORTANT: Replace all objects, don't append
           setObjects(message.objects)
           setHasReceivedInitialState(true)
-          console.log('Loaded initial state:', message.objects.length, 'objects')
+          console.log('✅ Loaded initial state:', message.objects.length, 'objects')
         }
         // Load initial presence state
         if ('presence' in message && message.presence) {
@@ -163,17 +164,20 @@ function Canvas() {
             presenceMap.set(p.userId, { ...p, color: getUserColor(p.userId) })
           })
           setPresences(presenceMap)
-          console.log('Loaded initial presence:', message.presence.length, 'users')
+          console.log('✅ Loaded initial presence:', message.presence.length, 'users')
         }
         break
 
       case MessageType.OBJECT_CREATE:
         if ('object' in message) {
           setObjects(prev => {
-            // Avoid duplicates
-            if (prev.find(o => o.id === message.object.id)) {
+            // Avoid duplicates - critical for refresh bug fix
+            const exists = prev.find(o => o.id === message.object.id)
+            if (exists) {
+              console.warn('⚠️ Duplicate object create ignored:', message.object.id)
               return prev
             }
+            console.log('➕ Adding object:', message.object.id, '(total:', prev.length + 1, ')')
             return [...prev, message.object]
           })
         }
@@ -256,7 +260,7 @@ function Canvas() {
         console.error('WebSocket error:', 'error' in message ? message.error : 'Unknown error')
         break
     }
-  }
+  }, []) // Empty deps - uses only setters which are stable
 
   // Calculate stage size and container offset
   useEffect(() => {
@@ -452,12 +456,49 @@ function Canvas() {
     setCanRedo(historyManager.current.canRedo())
   }, [objects])
 
+  // Align selected objects to center
+  const handleAlignCenter = useCallback(() => {
+    if (selectedIds.size < 2 || isViewer) {
+      return
+    }
+
+    const selectedObjects = objects.filter(obj => selectedIds.has(obj.id))
+    
+    // Calculate center point of all selected objects
+    const bounds = selectedObjects.reduce(
+      (acc, obj) => ({
+        minX: Math.min(acc.minX, obj.x),
+        maxX: Math.max(acc.maxX, obj.x + (obj.width || 0)),
+        minY: Math.min(acc.minY, obj.y),
+        maxY: Math.max(acc.maxY, obj.y + (obj.height || 0))
+      }),
+      { minX: Infinity, maxX: -Infinity, minY: Infinity, maxY: -Infinity }
+    )
+
+    const centerX = (bounds.minX + bounds.maxX) / 2
+    const centerY = (bounds.minY + bounds.maxY) / 2
+
+    // Move each object to be centered
+    selectedObjects.forEach(obj => {
+      const newX = centerX - (obj.width || 0) / 2
+      const newY = centerY - (obj.height || 0) / 2
+      
+      wsClient.updateObject({
+        id: obj.id,
+        x: newX,
+        y: newY
+      })
+    })
+
+    console.log(`✅ Aligned ${selectedObjects.length} objects to center`)
+  }, [objects, selectedIds, isViewer])
+
   // Track unsaved changes
   useEffect(() => {
     // Compare current objects with last saved state
     const currentObjectsStr = JSON.stringify(objects.map(obj => ({ id: obj.id, x: obj.x, y: obj.y, width: obj.width, height: obj.height, rotation: obj.rotation, color: obj.color, text: obj.text })))
     const lastSavedStr = JSON.stringify(lastSavedObjects.current.map(obj => ({ id: obj.id, x: obj.x, y: obj.y, width: obj.width, height: obj.height, rotation: obj.rotation, color: obj.color, text: obj.text })))
-    
+
     if (currentObjectsStr !== lastSavedStr && lastSavedObjects.current.length > 0) {
       setHasUnsavedChanges(true)
     }
@@ -471,12 +512,12 @@ function Canvas() {
     }
 
     setIsSaving(true)
-    
+
     // The WebSocket already handles real-time syncing, so we just need to:
     // 1. Update the last saved state
     // 2. Show visual feedback
     lastSavedObjects.current = JSON.parse(JSON.stringify(objects))
-    
+
     // Simulate save feedback
     setTimeout(() => {
       setIsSaving(false)
@@ -1181,6 +1222,11 @@ function Canvas() {
         e.preventDefault()
         handlePaste()
       }
+      // Ctrl+Shift+C: align center
+      else if (e.ctrlKey && e.shiftKey && e.key === 'C') {
+        e.preventDefault()
+        handleAlignCenter()
+      }
       // Escape: deselect all
       else if (e.key === 'Escape') {
         setSelectedIds(new Set())
@@ -1288,6 +1334,7 @@ function Canvas() {
         onSave={handleSave}
         hasUnsavedChanges={hasUnsavedChanges}
         isSaving={isSaving}
+        onAlignCenter={handleAlignCenter}
       />
 
       <Toolbar

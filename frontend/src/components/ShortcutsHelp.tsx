@@ -29,6 +29,7 @@ const shortcutData: ShortcutCategory[] = [
       { keys: ['Ctrl', 'X'], description: 'Cut selected objects' },
       { keys: ['Ctrl', 'V'], description: 'Paste objects' },
       { keys: ['Ctrl', 'A'], description: 'Select all objects' },
+      { keys: ['Ctrl', 'Shift', 'C'], description: 'Align selected to center' },
       { keys: ['Esc'], description: 'Deselect all' }
     ]
   },

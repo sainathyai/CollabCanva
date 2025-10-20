@@ -30,6 +30,7 @@ interface TopToolbarProps {
   onSave: () => void
   hasUnsavedChanges: boolean
   isSaving: boolean
+  onAlignCenter: () => void
 }
 
 /**
@@ -64,7 +65,8 @@ const TopToolbar: FC<TopToolbarProps> = ({
   onRedo,
   onSave,
   hasUnsavedChanges,
-  isSaving
+  isSaving,
+  onAlignCenter
 }) => {
   const isDisabled = !isAuthenticated || isViewer
   const [randomCount, setRandomCount] = useState(5)
@@ -193,6 +195,26 @@ const TopToolbar: FC<TopToolbarProps> = ({
               </label>
             </div>
             <span className="top-tool-label">Color</span>
+          </div>
+
+          <div className="top-tool-item">
+            <button
+              className="top-tool-btn"
+              onClick={onAlignCenter}
+              disabled={selectedCount < 2 || isDisabled}
+              title={isViewer ? "Viewers cannot align" : selectedCount < 2 ? "Select 2+ objects to align" : "Align to Center (Ctrl+Shift+C)"}
+            >
+              <svg width="35" height="35" viewBox="0 0 32 32">
+                <line x1="16" y1="6" x2="16" y2="26" stroke="currentColor" strokeWidth="2" strokeDasharray="2 2" opacity="0.5" />
+                <line x1="6" y1="16" x2="26" y2="16" stroke="currentColor" strokeWidth="2" strokeDasharray="2 2" opacity="0.5" />
+                <rect x="10" y="10" width="5" height="5" fill="currentColor" opacity="0.7" rx="1" />
+                <rect x="17" y="10" width="5" height="5" fill="currentColor" opacity="0.7" rx="1" />
+                <rect x="10" y="17" width="5" height="5" fill="currentColor" opacity="0.7" rx="1" />
+                <rect x="17" y="17" width="5" height="5" fill="currentColor" opacity="0.7" rx="1" />
+                <circle cx="16" cy="16" r="2" fill="#4a9eff" />
+              </svg>
+            </button>
+            <span className="top-tool-label">Align</span>
           </div>
         </div>
       </div>
