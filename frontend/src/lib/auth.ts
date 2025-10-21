@@ -3,8 +3,6 @@ import {
   getAuth,
   GoogleAuthProvider,
   signInWithPopup,
-  signInWithRedirect,
-  getRedirectResult,
   signOut as firebaseSignOut,
   onAuthStateChanged,
   type User
@@ -56,22 +54,6 @@ export async function signInWithGoogle(): Promise<User | null> {
     return result.user
   } catch (error) {
     console.error('Error signing in with Google:', error)
-    throw error
-  }
-}
-
-// Handle redirect result after Google sign-in
-export async function handleAuthRedirect(): Promise<User | null> {
-  const authInstance = getAuthInstance()
-
-  try {
-    console.log('Checking for redirect result...')
-    const result = await getRedirectResult(authInstance)
-    console.log('Redirect result:', result)
-    console.log('User from result:', result?.user)
-    return result?.user || null
-  } catch (error) {
-    console.error('Error handling auth redirect:', error)
     throw error
   }
 }
