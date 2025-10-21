@@ -1,45 +1,27 @@
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { signInWithGoogle, handleAuthRedirect } from '../lib/auth'
+import { signInWithGoogle } from '../lib/auth'
 
 function Login() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const navigate = useNavigate()
 
-  // Handle redirect result when component mounts
-  useEffect(() => {
-    const checkAuthRedirect = async () => {
-      setLoading(true)
-      try {
-        const user = await handleAuthRedirect()
-        console.log('handleAuthRedirect returned:', user)
-        if (user) {
-          // Successfully signed in via redirect
-          console.log('Auth successful, waiting for auth state to update...')
-          // Don't navigate immediately - let the Router's onAuthChange handle it
-          // The Router will see the authenticated state and redirect from /login to /dashboard
-        } else {
-          console.log('No redirect result found')
-        }
-      } catch (err) {
-        console.error('Auth redirect error:', err)
-        setError('Failed to complete sign in. Please try again.')
-      } finally {
-        setLoading(false)
-      }
-    }
-
-    checkAuthRedirect()
-  }, [navigate])
-
   const handleGoogleSignIn = async () => {
     setLoading(true)
     setError(null)
 
     try {
-      // This will redirect to Google (no return, user leaves page)
-      await signInWithGoogle()
+      console.log('User clicked Sign in with Google')
+      const user = await signInWithGoogle()
+      console.log('Sign-in complete, user:', user?.email)
+      
+      // Popup returns immediately with user, so we can navigate
+      // Router's auth listener will also update isAuthenticated state
+      if (user) {
+        console.log('Navigating to dashboard...')
+        navigate('/dashboard')
+      }
     } catch (err) {
       console.error('Sign in error:', err)
       setError('Failed to sign in with Google. Please try again.')

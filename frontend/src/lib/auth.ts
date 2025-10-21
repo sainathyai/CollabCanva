@@ -2,6 +2,7 @@ import { initializeApp } from 'firebase/app'
 import {
   getAuth,
   GoogleAuthProvider,
+  signInWithPopup,
   signInWithRedirect,
   getRedirectResult,
   signOut as firebaseSignOut,
@@ -43,14 +44,16 @@ export function getAuthInstance() {
   return auth!
 }
 
-// Sign in with Google (uses redirect to avoid COOP issues)
-export async function signInWithGoogle(): Promise<void> {
+// Sign in with Google (uses popup for custom domain compatibility)
+export async function signInWithGoogle(): Promise<User | null> {
   const authInstance = getAuthInstance()
   const provider = new GoogleAuthProvider()
 
   try {
-    // This will redirect the user to Google sign-in
-    await signInWithRedirect(authInstance, provider)
+    console.log('Starting Google sign-in with popup...')
+    const result = await signInWithPopup(authInstance, provider)
+    console.log('Sign-in successful:', result.user.email)
+    return result.user
   } catch (error) {
     console.error('Error signing in with Google:', error)
     throw error
