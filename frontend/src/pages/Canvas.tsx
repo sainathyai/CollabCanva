@@ -137,13 +137,28 @@ function Canvas() {
     connectWebSocket()
 
     // Subscribe to WebSocket messages
-    const unsubscribe = wsClient.onMessage((message: WSMessage) => {
+    const unsubscribeMessages = wsClient.onMessage((message: WSMessage) => {
       handleWebSocketMessage(message)
+    })
+
+    // Subscribe to reconnection events to re-authenticate
+    const unsubscribeReconnect = wsClient.onReconnect(async () => {
+      console.log('🔄 WebSocket reconnected - re-authenticating...')
+      if (user && projectId) {
+        try {
+          const token = await user.getIdToken(true)
+          console.log('🔑 Re-sending authentication after reconnect...', user.displayName || user.email)
+          wsClient.authenticate(token, user.displayName || undefined, projectId)
+        } catch (error) {
+          console.error('❌ Failed to re-authenticate after reconnect:', error)
+        }
+      }
     })
 
     // Cleanup on unmount or when project changes
     return () => {
-      unsubscribe()
+      unsubscribeMessages()
+      unsubscribeReconnect()
       wsClient.disconnect()
     }
   }, [user, projectId])
