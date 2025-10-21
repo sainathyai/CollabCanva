@@ -40,7 +40,7 @@ export function getAuthInstance() {
 export async function signInWithGoogle(): Promise<void> {
   const authInstance = getAuthInstance()
   const provider = new GoogleAuthProvider()
-  
+
   try {
     // This will redirect the user to Google sign-in
     await signInWithRedirect(authInstance, provider)
@@ -53,9 +53,12 @@ export async function signInWithGoogle(): Promise<void> {
 // Handle redirect result after Google sign-in
 export async function handleAuthRedirect(): Promise<User | null> {
   const authInstance = getAuthInstance()
-  
+
   try {
+    console.log('Checking for redirect result...')
     const result = await getRedirectResult(authInstance)
+    console.log('Redirect result:', result)
+    console.log('User from result:', result?.user)
     return result?.user || null
   } catch (error) {
     console.error('Error handling auth redirect:', error)
@@ -66,7 +69,7 @@ export async function handleAuthRedirect(): Promise<User | null> {
 // Sign out
 export async function signOut(): Promise<void> {
   const authInstance = getAuthInstance()
-  
+
   try {
     await firebaseSignOut(authInstance)
   } catch (error) {
