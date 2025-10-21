@@ -13,10 +13,14 @@ function Login() {
       setLoading(true)
       try {
         const user = await handleAuthRedirect()
+        console.log('handleAuthRedirect returned:', user)
         if (user) {
           // Successfully signed in via redirect
-          console.log('Auth successful, redirecting to dashboard')
-          navigate('/dashboard')
+          console.log('Auth successful, waiting for auth state to update...')
+          // Don't navigate immediately - let the Router's onAuthChange handle it
+          // The Router will see the authenticated state and redirect from /login to /dashboard
+        } else {
+          console.log('No redirect result found')
         }
       } catch (err) {
         console.error('Auth redirect error:', err)
