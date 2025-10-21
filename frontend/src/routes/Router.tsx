@@ -12,17 +12,24 @@ function Router() {
   const [isAuthenticated, setIsAuthenticated] = useState<boolean | null>(null)
 
   useEffect(() => {
+    console.log('[Router] Setting up auth listener...')
     // Subscribe to auth state changes
     const unsubscribe = onAuthChange((user) => {
+      console.log('[Router] Auth state changed:', user ? `User: ${user.email}` : 'No user')
       setIsAuthenticated(!!user)
+      console.log('[Router] isAuthenticated set to:', !!user)
     })
 
     // Cleanup subscription on unmount
-    return () => unsubscribe()
+    return () => {
+      console.log('[Router] Cleaning up auth listener')
+      unsubscribe()
+    }
   }, [])
 
   // Show loading state while checking auth
   if (isAuthenticated === null) {
+    console.log('[Router] Rendering loading state (isAuthenticated is null)')
     return (
       <div style={{
         display: 'flex',
@@ -35,6 +42,8 @@ function Router() {
       </div>
     )
   }
+
+  console.log('[Router] Rendering routes, isAuthenticated:', isAuthenticated)
 
   return (
     <ProjectProvider>
