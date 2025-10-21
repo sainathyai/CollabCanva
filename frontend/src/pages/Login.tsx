@@ -15,7 +15,8 @@ function Login() {
         const user = await handleAuthRedirect()
         if (user) {
           // Successfully signed in via redirect
-          navigate('/canvas')
+          console.log('Auth successful, redirecting to dashboard')
+          navigate('/dashboard')
         }
       } catch (err) {
         console.error('Auth redirect error:', err)
@@ -31,7 +32,7 @@ function Login() {
   const handleGoogleSignIn = async () => {
     setLoading(true)
     setError(null)
-    
+
     try {
       // This will redirect to Google (no return, user leaves page)
       await signInWithGoogle()
@@ -48,24 +49,24 @@ function Login() {
         <div className="login-card">
           <h1>CollabCanvas</h1>
           <p className="login-subtitle">Real-time Collaborative Whiteboard</p>
-          
+
           <div className="login-content">
             <p>Sign in to start collaborating</p>
-            
+
             {error && (
-              <div className="error-message" style={{ 
-                color: '#dc3545', 
-                marginBottom: '1rem', 
-                padding: '0.5rem', 
-                backgroundColor: '#f8d7da', 
-                borderRadius: '4px' 
+              <div className="error-message" style={{
+                color: '#dc3545',
+                marginBottom: '1rem',
+                padding: '0.5rem',
+                backgroundColor: '#f8d7da',
+                borderRadius: '4px'
               }}>
                 {error}
               </div>
             )}
-            
-            <button 
-              className="btn-google" 
+
+            <button
+              className="btn-google"
               onClick={handleGoogleSignIn}
               disabled={loading}
             >
