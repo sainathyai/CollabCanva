@@ -8,6 +8,8 @@ export interface EnvConfig {
   ALLOWED_ORIGINS: string[]
   FIREBASE_PROJECT_ID?: string
   NODE_ENV: 'development' | 'production' | 'test'
+  // Redis Configuration
+  REDIS_URL?: string
   // AWS Configuration
   AWS_REGION: string
   AWS_ACCESS_KEY_ID?: string
@@ -30,6 +32,9 @@ function parseEnv(): EnvConfig {
 
   const nodeEnv = (process.env.NODE_ENV || 'development') as EnvConfig['NODE_ENV']
 
+  // Redis Configuration
+  const redisUrl = process.env.REDIS_URL
+
   // AWS Configuration
   const awsRegion = process.env.AWS_REGION || 'us-east-1'
   const awsAccessKeyId = process.env.AWS_ACCESS_KEY_ID
@@ -46,6 +51,7 @@ function parseEnv(): EnvConfig {
     ALLOWED_ORIGINS: allowedOrigins,
     FIREBASE_PROJECT_ID: firebaseProjectId,
     NODE_ENV: nodeEnv,
+    REDIS_URL: redisUrl,
     AWS_REGION: awsRegion,
     AWS_ACCESS_KEY_ID: awsAccessKeyId,
     AWS_SECRET_ACCESS_KEY: awsSecretAccessKey,

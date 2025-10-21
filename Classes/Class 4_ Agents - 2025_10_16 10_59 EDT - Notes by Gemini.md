@@ -1,0 +1,62 @@
+Oct 16, 2025
+
+## Class 4: Agents
+
+Invited [aaron@gauntlethq.com](mailto:aaron@gauntlethq.com) ~~[Ash Tilawat](mailto:ash@gauntlethq.com)~~
+
+Attachments [Class 4: Agents](https://www.google.com/calendar/event?eid=MGtncnRxYWk3Y29iazJtZHVnNXZuOTBkMTQgYXNoQGdhdW50bGV0aHEuY29t) 
+
+Meeting records [Transcript](?tab=t.tx80fif3b75o) [Recording](https://drive.google.com/file/d/12sdohOBbmGUE6TCIDrXwXbvz7CgYn0E0/view?usp=drive_web) 
+
+### Summary
+
+Aaron Gallant provided an in-depth introduction to agents, explaining their functionality as reasoning engines using language models to select actions and influence program control flow, while cautioning against overcomplicating solutions. He discussed the React framework, action loops, and model selection, advising to use the least compute necessary and emphasizing that prompt engineering is necessary for each model. Justice Perez White, Kiran Rushton, Michael Korn, Reuben, Mike Tikh, and Logan May contributed to the discussion by inquiring about model selection, base model performance, applications, LangChain preferences, tool differences, multi-agent systems, and the availability of GitHub links, to which Aaron Gallant provided comprehensive answers, covering topics like LangSmith for traceability, latency challenges in voice applications, and AI-assisted coding efficiency.
+
+### Details
+
+* **Introduction to Agents** Aaron Gallant introduced the concept of agents as a technical term, defining them as using a language model to select a sequence of actions, thereby acting as a reasoning engine ([00:00:00](?tab=t.tx80fif3b75o#heading=h.pqafp84kdabj)). He explained that agents allow a language model to influence the program's control flow, a significant capability ([00:01:20](?tab=t.tx80fif3b75o#heading=h.mipw735g6e8j)).
+
+* **Complexity and Practicality of Agents** Aaron Gallant cautioned against overcomplicating solutions with agents, emphasizing that simpler approaches are often better, especially under time pressure. He noted that while agents are powerful, they introduce uncertainty and complexity that require careful management for reliable systems ([00:01:20](?tab=t.tx80fif3b75o#heading=h.mipw735g6e8j)).
+
+* **React Framework and Loops** Aaron Gallant explained the React framework, which stands for Reasoning plus Acting, aiming to make Large Language Models (LLMs) mimic human-like operations by incorporating loops ([00:05:21](?tab=t.tx80fif3b75o#heading=h.4v1pebnsmkkz)). He likened the reasoning loop to the language model "talking to itself," where messages are passed back to itself to improve inference, a practice currently ahead of full scientific understanding ([00:07:53](?tab=t.tx80fif3b75o#heading=h.igx8skylmqlb)).
+
+* **Analogy of Ancient vs. Modern Architecture** Aaron Gallant used an analogy of ancient civilizations building structures versus modern skyscraper construction to illustrate the current state of LLM understanding ([00:09:12](?tab=t.tx80fif3b75o#heading=h.vc8qpah985kh)). He stated that humanity is currently like an "ancient civilization" regarding LLMs, lacking a full theoretical understanding from first principles, and thus building by trial and error rather than complete design ([00:11:30](?tab=t.tx80fif3b75o#heading=h.1e4aqz4sr8t9)).
+
+* **Action Loop and Recursion Limits** Aaron Gallant described the "action loop" as tool invocations that result in environmental feedback, mirroring human thinking and doing ([00:12:36](?tab=t.tx80fif3b75o#heading=h.ui0nw09w4md)). He addressed the concern of indefinite loops by explaining that toolchains like LangChain have built-in recursion limits, typically five to ten steps, to prevent endless execution ([00:13:41](?tab=t.tx80fif3b75o#heading=h.1igzgnug2w2b)).
+
+* **Model Selection for Agents** Justice Perez White asked about considerations for choosing the LLM behind an agent, inquiring if a single "smartest" model is always preferable or if multiple "dumber" ones could be better ([00:14:52](?tab=t.tx80fif3b75o#heading=h.lc9hm7f62e0l)). Aaron Gallant responded that it varies, advising to use the least compute necessary for the job and noting that smaller models can be effective for focused tasks, especially in multi-agent systems where specialization or tiered appeals to fancier models can occur ([00:15:57](?tab=t.tx80fif3b75o#heading=h.ijorzqq2h3dy)).
+
+* **Avoiding Redundant Thinking Models** Kiran Rushton inquired about how base model performance affects architecture and model selection ([00:17:17](?tab=t.tx80fif3b75o#heading=h.fiesyzkyurx5)). Aaron Gallant advised against using "thinking models" (LLMs with built-in reasoning mechanisms) when implementing custom React-style looping, as it would be redundant and likely result in excessive token usage and cost ([00:18:48](?tab=t.tx80fif3b75o#heading=h.l4fgl2jozecj)).
+
+* **Prompt Engineering and Model Competition** Aaron Gallant stated that model selection is still a "wild west," suggesting that cost and convenience are reasonable primary concerns when choosing among major providers, as models are generally competitive ([00:18:48](?tab=t.tx80fif3b75o#heading=h.l4fgl2jozecj)). He emphasized that prompt engineering is necessary for each model, meaning a prompt optimized for one model, like GPT, would need re-engineering for another, like Claude ([00:20:07](?tab=t.tx80fif3b75o#heading=h.ingo1xkk4m1u)).
+
+* **Applications of Agentic Systems** Michael Korn asked for examples of what agentic systems could be used for ([00:23:08](?tab=t.tx80fif3b75o#heading=h.zccik392wbrh)). Aaron Gallant explained that they can assist humans in problem-solving, automate tasks in business processes, and potentially reduce human intervention, though not eliminate it entirely, by applying these ideas to problems where humans spend excessive time ([00:24:07](?tab=t.tx80fif3b75o#heading=h.8su5veu9ph34)).
+
+* **Agentic Life Cycle and Text-to-Text Interface** Aaron Gallant detailed the agentic life cycle, explaining that the user-facing interface remains text-to-text, similar to zero-shot LLM interactions or Unix command-line tools. He highlighted that this common text-to-text interface allows for composability, enabling agents and tools to be chained or piped together regardless of their internal complexity ([00:25:27](?tab=t.tx80fif3b75o#heading=h.dif701tjmajb)).
+
+* **Bitcoin Report Agent Example** Aaron Gallant walked through a simple agent example for generating a Bitcoin price report ([00:28:00](?tab=t.tx80fif3b75o#heading=h.zczobpxwu40p)). This agent used tools for web searching and report writing, with the latter involving another LLM call to synthesize research data into a concise report before saving it to a file ([00:29:15](?tab=t.tx80fif3b75o#heading=h.qfctiq6t8usa)) ([00:32:24](?tab=t.tx80fif3b75o#heading=h.ruymp7etzbyp)).
+
+* **LangChain and Production Considerations** Reuben asked about the preference for Python versus JavaScript for building agent applications with LangChain. Aaron Gallant explained that Python is the "first-class citizen" for machine learning and LLMs, offering more complete support, but JavaScript/TypeScript can be used for quick prototypes, or a Python microservice with a REST API can be an option for production ([00:36:00](?tab=t.tx80fif3b75o#heading=h.d16b04mingkc)).
+
+* **Tool Calling vs. MCP** Mike Tikh inquired about the difference between LangChain tools and MCP (Anthropic's standard for tool use) ([00:37:27](?tab=t.tx80fif3b75o#heading=h.ngt4tnicxoha)). Aaron Gallant clarified that MCP is an opinionated, standardized version of tool calling with integrations, especially within the Anthropic ecosystem, while LangChain's tool calling is more general. He also noted that MCP is a "very trusting simple protocol" regarding security, while Google's alternative, A for Agent to Agent, is more complex but feature-rich ([00:38:13](?tab=t.tx80fif3b75o#heading=h.927m81j75crr)).
+
+* **LangSmith for Agent Traceability** Aaron Gallant demonstrated LangSmith, a tool for visualizing the hierarchy and steps of an agent's execution ([00:39:44](?tab=t.tx80fif3b75o#heading=h.jtot77fn4vkr)). He showed how LangSmith tracks the progression from a user prompt to the final output, detailing each tool call, its query, and its return, allowing for deep inspection of the agent's reasoning process and token usage ([00:41:01](?tab=t.tx80fif3b75o#heading=h.u8ffrqsoq1ez)).
+
+* **Latency and User Experience Challenges** Kiran Rushton raised concerns about latency in voice applications when using agents ([00:43:34](?tab=t.tx80fif3b75o#heading=h.rifshtg38vjk)). Aaron Gallant acknowledged that even simple agents introduce significant delays (easily 10+ seconds) due to LLM call latency, making them generally unacceptable for synchronous user-facing applications unless optimized ([00:45:36](?tab=t.tx80fif3b75o#heading=h.th2f5win2m8)). He suggested strategies like streaming output or using agents for background tasks with later notifications to manage user expectations ([00:46:42](?tab=t.tx80fif3b75o#heading=h.yyjyaqq314jo)).
+
+* **Benchmarking and Future Outlook** Aaron Gallant discussed benchmarking different model configurations (e.g., two smaller models vs. one large model) for intelligence and efficiency, emphasizing the need for task-specific labeled holdout data to measure performance ([00:47:34](?tab=t.tx80fif3b75o#heading=h.y4l3d1xwcsdy)). He also briefly mentioned several other examples of agentic notebooks, including a vector store for RAG, a sales GPT for closing deals, Baby AGI for planning, and mathematical assistants for guided calculations ([00:49:40](?tab=t.tx80fif3b75o#heading=h.89p9wd14dm0h)) ([00:53:46](?tab=t.tx80fif3b75o#heading=h.wtiqy5ogehcx)).
+
+* **AI-Assisted Coding Efficiency** Aaron Gallant discussed how using large language models (LLMs) can significantly speed up coding tasks, particularly for "throwaway code" like SQL queries and bash commands, by reducing keystrokes and optimization time ([00:59:49](?tab=t.tx80fif3b75o#heading=h.8oxdtxja3ro6)). Kiran Rushton agreed that this approach offers fewer keystrokes ([01:00:47](?tab=t.tx80fif3b75o#heading=h.a3l76le5rfi8)). Aaron Gallant emphasized that while LLMs boost efficiency, a strong technical intuition is still necessary to formulate effective prompts ([01:01:46](?tab=t.tx80fif3b75o#heading=h.ehhwl3wntso7)).
+
+* **GitHub Access and Project Frameworks** Logan May inquired about the availability of GitHub links for the projects demonstrated. Aaron Gallant explained that while GitHub links exist, bureaucratic organizational issues prevent immediate access, and a workaround involving zipped code files is currently in place ([01:02:31](?tab=t.tx80fif3b75o#heading=h.vbc2yj5g7lqv)). Aaron Gallant confirmed that using provided code as a starting point for personal projects is acceptable, suggesting direct code grabbing over explicit forking due to the pedagogical structure of the repositories ([01:02:31](?tab=t.tx80fif3b75o#heading=h.vbc2yj5g7lqv)).
+
+* **Multi-Agent Systems** Logan May asked about the multi-agent approaches, specifically regarding LangGraph. Aaron Gallant confirmed that multi-agent systems will be covered, mentioning LangGraph and Crew AI as tools within this space ([01:02:31](?tab=t.tx80fif3b75o#heading=h.vbc2yj5g7lqv)). Aaron Gallant elaborated that while LangGraph offers primitives for building agent graphs, Crew AI is more opinionated and automates graph creation ([01:02:31](?tab=t.tx80fif3b75o#heading=h.vbc2yj5g7lqv)). He also highlighted the ambitious, yet unfulfilled, promise of consensus-based approaches in multi-agent frameworks, where agents would self-organize and collaborate akin to a highly effective human team ([01:07:29](?tab=t.tx80fif3b75o#heading=h.jo95gst56ddy)).
+
+### Suggested next steps
+
+- [ ] Kiran Rushton will type up some of the questions and drop them in the channel.  
+- [ ] Aaron Gallant will track down the browser memory leak.
+
+*You should review Gemini's notes to make sure they're accurate. [Get tips and learn how Gemini takes notes](https://support.google.com/meet/answer/14754931)*
+
+*Please provide feedback about using Gemini to take notes in a [short survey.](https://google.qualtrics.com/jfe/form/SV_9vK3UZEaIQKKE7A?confid=vxJ6GvYt7-AExtH28MPEDxIWOAIIigIgABgBCA&detailid=unspecified)*

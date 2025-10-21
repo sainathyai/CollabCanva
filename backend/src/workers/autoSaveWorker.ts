@@ -41,8 +41,8 @@ async function autoSaveLoop(): Promise<void> {
 
   for (const [projectId, lastModified] of dirtyProjects) {
     try {
-      // Get all objects for this project from memory
-      const objects = getAllObjectsForProject(projectId)
+      // Get all objects for this project from Redis/memory
+      const objects = await getAllObjectsForProject(projectId)
 
       if (objects.length === 0) {
         logger.debug(`[AutoSave] Project ${projectId} has no objects, skipping`)

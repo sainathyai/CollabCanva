@@ -1,4 +1,4 @@
-import { useRef, useEffect, useState, useMemo } from 'react';
+import { useRef, useEffect, useState, useMemo, forwardRef, useImperativeHandle } from 'react';
 import { Stage, Layer, Rect, Circle, Line, Text, RegularPolygon, Star, Arrow, Ellipse } from 'react-konva';
 import Konva from 'konva';
 import { CanvasObject } from '../types';
@@ -16,12 +16,17 @@ interface KonvaCanvasProps {
   isPanning: boolean;
   onPositionChange: (position: { x: number; y: number }) => void;
   showGrid?: boolean;
+  snapToGrid?: boolean;
   isViewer?: boolean;
+}
+
+export interface KonvaCanvasHandle {
+  getStage: () => Konva.Stage | null;
 }
 
 // Note: Memoization removed to ensure event handlers work correctly with multi-select drag
 
-export function KonvaCanvas({
+export const KonvaCanvas = forwardRef<KonvaCanvasHandle, KonvaCanvasProps>(({
   objects,
   selectedIds,
   onSelect,
@@ -32,11 +37,24 @@ export function KonvaCanvas({
   position,
   isPanning,
   onPositionChange,
-  showGrid = true
-}: KonvaCanvasProps) {
+  showGrid = true,
+  snapToGrid = false
+}, ref) => {
   const stageRef = useRef<Konva.Stage>(null);
   const layerRef = useRef<Konva.Layer>(null);
   const dragStartPositions = useRef<Map<string, { x: number; y: number }>>(new Map());
+
+  // Snap helper function - snaps coordinates to nearest grid intersection (50px major grid)
+  const snapCoordinate = (value: number, gridSize: number = 50): number => {
+    if (!snapToGrid) return value;
+    return Math.round(value / gridSize) * gridSize;
+  };
+
+  // Expose stage ref to parent for export functionality
+  useImperativeHandle(ref, () => ({
+    getStage: () => stageRef.current
+  }), []);
+
   const [selectionRect, setSelectionRect] = useState<{ x: number; y: number; width: number; height: number } | null>(null);
   const [isSelecting, setIsSelecting] = useState(false);
   const selectionStart = useRef<{ x: number; y: number } | null>(null);
@@ -305,10 +323,18 @@ export function KonvaCanvas({
     selectedIds.forEach(selectedId => {
       const selectedNode = stage.findOne(`#${selectedId}`);
       if (selectedNode) {
-        onTransform(selectedId, {
-          x: selectedNode.x(),
-          y: selectedNode.y()
-        });
+        // Apply snap to grid if enabled
+        const x = snapCoordinate(selectedNode.x());
+        const y = snapCoordinate(selectedNode.y());
+
+        // Update node position if snapped
+        if (snapToGrid) {
+          selectedNode.x(x);
+          selectedNode.y(y);
+          selectedNode.getLayer()?.batchDraw();
+        }
+
+        onTransform(selectedId, { x, y });
       }
     });
 
@@ -778,5 +804,7 @@ export function KonvaCanvas({
       )}
     </>
   );
-}
+})
+
+KonvaCanvas.displayName = 'KonvaCanvas';
 

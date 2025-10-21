@@ -46,24 +46,29 @@ export function AIChat({ context, onExecuteFunction, isOpen, onToggle }: AIChatP
     if (!sidebar) return;
 
     const handleWheel = (e: WheelEvent) => {
-      // Stop event from reaching canvas (prevents zoom)
-      // But DON'T preventDefault() to allow normal scrolling
+      // Always stop propagation to prevent canvas zoom
       e.stopPropagation();
+      // Allow the default scroll behavior for the chat
     };
 
-    sidebar.addEventListener('wheel', handleWheel);
-    return () => sidebar.removeEventListener('wheel', handleWheel);
+    // Use capture phase to intercept events before they reach canvas
+    sidebar.addEventListener('wheel', handleWheel, { passive: false, capture: true });
+    return () => sidebar.removeEventListener('wheel', handleWheel, { capture: true });
   }, []);
 
   const exampleCommands = [
+    'Create a cat 🐱',
+    'Draw a rabbit 🐰',
+    'Add a butterfly 🦋',
+    'Make a heart ❤️',
+    'Create a beach scene 🏖️',
+    'Draw a rocket 🚀',
+    'Add a rainbow 🌈',
+    'Export canvas as PNG',
     'Generate 10 random objects',
     'Create 5 blue circles',
     'Make all rectangles red',
-    'Move selected shapes 50 pixels right',
-    'Arrange selected objects in a grid',
-    'Rotate everything 45 degrees',
-    'Delete all circles',
-    'Surprise me with 15 shapes'
+    'Arrange selected objects in a grid'
   ];
 
   const handleSubmit = async (e: React.FormEvent) => {

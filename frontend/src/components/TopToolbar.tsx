@@ -16,9 +16,21 @@ interface TopToolbarProps {
   onCreateRandomObjects: (count: number) => void
   showGrid: boolean
   onToggleGrid: () => void
+  snapToGrid: boolean
+  onToggleSnap: () => void
   isPanning: boolean
   onTogglePan: () => void
   onFitAll: () => void
+  onExportPNG: () => void
+  onOpenTemplates: () => void
+  canUndo: boolean
+  canRedo: boolean
+  onUndo: () => void
+  onRedo: () => void
+  onSave: () => void
+  hasUnsavedChanges: boolean
+  isSaving: boolean
+  onAlignCenter: () => void
 }
 
 /**
@@ -40,9 +52,21 @@ const TopToolbar: FC<TopToolbarProps> = ({
   onCreateRandomObjects,
   showGrid,
   onToggleGrid,
+  snapToGrid,
+  onToggleSnap,
   isPanning,
   onTogglePan,
-  onFitAll
+  onFitAll,
+  onExportPNG,
+  onOpenTemplates,
+  canUndo,
+  canRedo,
+  onUndo,
+  onRedo,
+  onSave,
+  hasUnsavedChanges,
+  isSaving,
+  onAlignCenter
 }) => {
   const isDisabled = !isAuthenticated || isViewer
   const [randomCount, setRandomCount] = useState(5)
@@ -58,6 +82,72 @@ const TopToolbar: FC<TopToolbarProps> = ({
       <div className="top-toolbar-section">
         <span className="top-toolbar-label">Edit</span>
         <div className="top-toolbar-group">
+          <div className="top-tool-item">
+            <button
+              className={`top-tool-btn ${isSaving ? 'saving' : ''} ${hasUnsavedChanges ? 'unsaved' : 'saved'}`}
+              onClick={onSave}
+              disabled={isDisabled || isSaving}
+              title={isViewer ? "Viewers cannot save" : hasUnsavedChanges ? "Save Changes (Cmd+S)" : "All Changes Saved"}
+            >
+              <svg width="35" height="35" viewBox="0 0 32 32">
+                {isSaving ? (
+                  <g className="saving-spinner">
+                    <circle cx="16" cy="16" r="10" fill="none" stroke="currentColor" strokeWidth="2" strokeDasharray="15 50" />
+                  </g>
+                ) : hasUnsavedChanges ? (
+                  <>
+                    <rect x="8" y="6" width="16" height="20" fill="none" stroke="currentColor" strokeWidth="2" rx="1" />
+                    <rect x="8" y="6" width="16" height="6" fill="currentColor" opacity="0.3" />
+                    <line x1="11" y1="16" x2="21" y2="16" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+                    <line x1="11" y1="20" x2="21" y2="20" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+                    <circle cx="24" cy="8" r="3" fill="#ff4444" stroke="white" strokeWidth="1.5" />
+                  </>
+                ) : (
+                  <>
+                    <rect x="8" y="6" width="16" height="20" fill="none" stroke="currentColor" strokeWidth="2" rx="1" />
+                    <rect x="8" y="6" width="16" height="6" fill="currentColor" opacity="0.3" />
+                    <line x1="11" y1="16" x2="21" y2="16" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+                    <line x1="11" y1="20" x2="21" y2="20" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+                    <path d="M23 10 L20 13 L18 11" fill="none" stroke="#44ff44" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                  </>
+                )}
+              </svg>
+            </button>
+            <span className="top-tool-label">
+              {isSaving ? 'Saving...' : hasUnsavedChanges ? 'Save' : 'Saved'}
+            </span>
+          </div>
+
+          <div className="top-tool-item">
+            <button
+              className="top-tool-btn"
+              onClick={onUndo}
+              disabled={!canUndo || isDisabled}
+              title={isViewer ? "Viewers cannot undo" : "Undo (Cmd+Z)"}
+            >
+              <svg width="35" height="35" viewBox="0 0 32 32">
+                <path d="M20 10 L10 16 L20 22" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                <path d="M10 16 L24 16" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+              </svg>
+            </button>
+            <span className="top-tool-label">Undo</span>
+          </div>
+
+          <div className="top-tool-item">
+            <button
+              className="top-tool-btn"
+              onClick={onRedo}
+              disabled={!canRedo || isDisabled}
+              title={isViewer ? "Viewers cannot redo" : "Redo (Cmd+Shift+Z)"}
+            >
+              <svg width="35" height="35" viewBox="0 0 32 32">
+                <path d="M12 10 L22 16 L12 22" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                <path d="M22 16 L8 16" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+              </svg>
+            </button>
+            <span className="top-tool-label">Redo</span>
+          </div>
+
           <div className="top-tool-item">
             <button
               className="top-tool-btn"
@@ -105,6 +195,26 @@ const TopToolbar: FC<TopToolbarProps> = ({
               </label>
             </div>
             <span className="top-tool-label">Color</span>
+          </div>
+
+          <div className="top-tool-item">
+            <button
+              className="top-tool-btn"
+              onClick={onAlignCenter}
+              disabled={selectedCount < 2 || isDisabled}
+              title={isViewer ? "Viewers cannot align" : selectedCount < 2 ? "Select 2+ objects to align" : "Align to Center (Ctrl+Shift+C)"}
+            >
+              <svg width="35" height="35" viewBox="0 0 32 32">
+                <line x1="16" y1="6" x2="16" y2="26" stroke="currentColor" strokeWidth="2" strokeDasharray="2 2" opacity="0.5" />
+                <line x1="6" y1="16" x2="26" y2="16" stroke="currentColor" strokeWidth="2" strokeDasharray="2 2" opacity="0.5" />
+                <rect x="10" y="10" width="5" height="5" fill="currentColor" opacity="0.7" rx="1" />
+                <rect x="17" y="10" width="5" height="5" fill="currentColor" opacity="0.7" rx="1" />
+                <rect x="10" y="17" width="5" height="5" fill="currentColor" opacity="0.7" rx="1" />
+                <rect x="17" y="17" width="5" height="5" fill="currentColor" opacity="0.7" rx="1" />
+                <circle cx="16" cy="16" r="2" fill="#4a9eff" />
+              </svg>
+            </button>
+            <span className="top-tool-label">Align</span>
           </div>
         </div>
       </div>
@@ -175,6 +285,23 @@ const TopToolbar: FC<TopToolbarProps> = ({
 
           <div className="top-tool-item">
             <button
+              className={`top-tool-btn ${snapToGrid ? 'active' : ''}`}
+              onClick={onToggleSnap}
+              title="Snap to Grid (S)"
+            >
+              <svg width="35" height="35" viewBox="0 0 32 32">
+                <rect x="8" y="8" width="7" height="7" fill="none" stroke="currentColor" strokeWidth="2" />
+                <rect x="17" y="8" width="7" height="7" fill="none" stroke="currentColor" strokeWidth="2" />
+                <rect x="8" y="17" width="7" height="7" fill="none" stroke="currentColor" strokeWidth="2" />
+                <rect x="17" y="17" width="7" height="7" fill="none" stroke="currentColor" strokeWidth="2" />
+                <circle cx="16" cy="16" r="3" fill="currentColor" />
+              </svg>
+            </button>
+            <span className="top-tool-label">Snap</span>
+          </div>
+
+          <div className="top-tool-item">
+            <button
               className={`top-tool-btn ${isPanning ? 'active' : ''}`}
               onClick={onTogglePan}
               title="Pan Mode (Space)"
@@ -201,6 +328,41 @@ const TopToolbar: FC<TopToolbarProps> = ({
               </svg>
             </button>
             <span className="top-tool-label">Fit All</span>
+          </div>
+
+          <div className="top-tool-item">
+            <button
+              className="top-tool-btn"
+              onClick={onExportPNG}
+              title="Export Canvas as PNG (Cmd+Shift+E)"
+              disabled={objectCount === 0}
+            >
+              <svg width="35" height="35" viewBox="0 0 32 32">
+                <path d="M16 4 L16 18 M16 18 L12 14 M16 18 L20 14" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                <rect x="6" y="22" width="20" height="6" fill="none" stroke="currentColor" strokeWidth="2" rx="1" />
+                <line x1="10" y1="25" x2="22" y2="25" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+              </svg>
+            </button>
+            <span className="top-tool-label">Export PNG</span>
+          </div>
+
+          <div className="top-tool-item">
+            <button
+              className="top-tool-btn"
+              onClick={onOpenTemplates}
+              title="Load Template (Cmd+Shift+T)"
+              disabled={isDisabled}
+            >
+              <svg width="35" height="35" viewBox="0 0 32 32">
+                <rect x="6" y="6" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2" rx="2" />
+                <line x1="12" y1="12" x2="20" y2="12" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+                <line x1="12" y1="16" x2="18" y2="16" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+                <line x1="12" y1="20" x2="16" y2="20" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+                <circle cx="24" cy="24" r="4" fill="#FFD700" stroke="white" strokeWidth="1.5" />
+                <text x="24" y="27" textAnchor="middle" fontSize="5" fill="white">✨</text>
+              </svg>
+            </button>
+            <span className="top-tool-label">Templates</span>
           </div>
 
         </div>

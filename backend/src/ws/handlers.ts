@@ -38,19 +38,19 @@ export async function handleMessage(ws: WebSocket, message: string) {
         break
 
       case MessageType.OBJECT_CREATE:
-        handleObjectCreate(ws, data as ObjectCreateMessage)
+        await handleObjectCreate(ws, data as ObjectCreateMessage)
         break
 
       case MessageType.OBJECT_UPDATE:
-        handleObjectUpdate(ws, data as ObjectUpdateMessage)
+        await handleObjectUpdate(ws, data as ObjectUpdateMessage)
         break
 
       case MessageType.OBJECT_DELETE:
-        handleObjectDelete(ws, data as ObjectDeleteMessage)
+        await handleObjectDelete(ws, data as ObjectDeleteMessage)
         break
 
       case MessageType.PRESENCE_CURSOR:
-        handlePresenceCursor(ws, data as PresenceCursorMessage)
+        await handlePresenceCursor(ws, data as PresenceCursorMessage)
         break
 
       default:
@@ -158,28 +158,22 @@ async function handleAuth(ws: WebSocket, message: AuthMessage) {
     }))
 
     // Load objects from database if not already in memory
-    const objectsInMemory = canvasState.getAllObjects(projectId).length
-    if (objectsInMemory === 0) {
+    const objectsInMemory = await canvasState.getAllObjects(projectId)
+    if (objectsInMemory.length === 0) {
       logger.info('Project not in memory, loading from database', { projectId })
       await canvasState.loadFromDatabase(projectId)
     }
 
     // SECURITY FIX: Send initial canvas state ONLY after authentication
-    const initialObjects = canvasState.getAllObjects(projectId)
+    const initialObjects = await canvasState.getAllObjects(projectId)
     logger.info('Sending initial state to authenticated user', {
       userId: userClaims.uid,
       projectId,
       objectCount: initialObjects.length,
       objects: initialObjects.map(o => ({ id: o.id, type: o.type, createdBy: o.createdBy }))
     })
-    ws.send(JSON.stringify({
-      type: MessageType.INITIAL_STATE,
-      objects: initialObjects,
-      timestamp: new Date().toISOString()
-    }))
-
     // Register user presence
-    const presence = presenceState.updatePresence(
+    const presence = await presenceState.updatePresence(
       userClaims.uid,
       userClaims.name || 'Anonymous',
       0,
@@ -187,9 +181,13 @@ async function handleAuth(ws: WebSocket, message: AuthMessage) {
     )
 
     // Send all existing presence to the new user
-    const allPresence = presenceState.getAllPresence()
+    const allPresence = await presenceState.getAllPresence()
+    
+    // 🚀 CRITICAL FIX: Send SINGLE INITIAL_STATE message with both objects AND presence
+    // This prevents race conditions where two separate messages cause duplicate/inconsistent state
     ws.send(JSON.stringify({
       type: MessageType.INITIAL_STATE,
+      objects: initialObjects,
       presence: allPresence.filter(p => p.userId !== userClaims.uid),
       timestamp: new Date().toISOString()
     }))
@@ -227,7 +225,7 @@ async function handleAuth(ws: WebSocket, message: AuthMessage) {
 /**
  * Handle object create message
  */
-function handleObjectCreate(ws: WebSocket, message: ObjectCreateMessage) {
+async function handleObjectCreate(ws: WebSocket, message: ObjectCreateMessage) {
   try {
     const user = connectedClients.get(ws)
     if (!user) {
@@ -246,8 +244,8 @@ function handleObjectCreate(ws: WebSocket, message: ObjectCreateMessage) {
 
     const projectId = clientProjects.get(ws) || canvasState.DEFAULT_PROJECT_ID
 
-    // Create object in state for this project
-    const object = canvasState.createObject(projectId, message.object)
+    // Create object in state for this project (Redis/memory)
+    const object = await canvasState.createObject(projectId, message.object)
 
     // Broadcast to all clients in the same project
     const broadcastMessage = JSON.stringify({
@@ -275,7 +273,7 @@ function handleObjectCreate(ws: WebSocket, message: ObjectCreateMessage) {
 /**
  * Handle object update message
  */
-function handleObjectUpdate(ws: WebSocket, message: ObjectUpdateMessage) {
+async function handleObjectUpdate(ws: WebSocket, message: ObjectUpdateMessage) {
   try {
     const user = connectedClients.get(ws)
     if (!user) {
@@ -292,8 +290,8 @@ function handleObjectUpdate(ws: WebSocket, message: ObjectUpdateMessage) {
 
     const projectId = clientProjects.get(ws) || canvasState.DEFAULT_PROJECT_ID
 
-    // Update object in state (last-write-wins) for this project
-    const object = canvasState.updateObject(projectId, message.object)
+    // Update object in state (last-write-wins) for this project (Redis/memory)
+    const object = await canvasState.updateObject(projectId, message.object)
 
     // Broadcast to all clients in the same project
     const broadcastMessage = JSON.stringify({
@@ -313,7 +311,7 @@ function handleObjectUpdate(ws: WebSocket, message: ObjectUpdateMessage) {
 /**
  * Handle object delete message
  */
-function handleObjectDelete(ws: WebSocket, message: ObjectDeleteMessage) {
+async function handleObjectDelete(ws: WebSocket, message: ObjectDeleteMessage) {
   try {
     const user = connectedClients.get(ws)
     if (!user) {
@@ -330,8 +328,8 @@ function handleObjectDelete(ws: WebSocket, message: ObjectDeleteMessage) {
 
     const projectId = clientProjects.get(ws) || canvasState.DEFAULT_PROJECT_ID
 
-    // Delete object from state for this project
-    const deleted = canvasState.deleteObject(projectId, message.objectId)
+    // Delete object from state for this project (Redis/memory)
+    const deleted = await canvasState.deleteObject(projectId, message.objectId)
 
     if (deleted) {
       // Broadcast to all clients in the same project
@@ -355,7 +353,7 @@ function handleObjectDelete(ws: WebSocket, message: ObjectDeleteMessage) {
 /**
  * Handle presence cursor update
  */
-function handlePresenceCursor(ws: WebSocket, message: PresenceCursorMessage) {
+async function handlePresenceCursor(ws: WebSocket, message: PresenceCursorMessage) {
   try {
     const user = connectedClients.get(ws)
     if (!user) {
@@ -366,8 +364,8 @@ function handlePresenceCursor(ws: WebSocket, message: PresenceCursorMessage) {
 
     const projectId = clientProjects.get(ws) || canvasState.DEFAULT_PROJECT_ID
 
-    // Update cursor position in presence state
-    presenceState.updateCursor(user.uid, message.x, message.y)
+    // Update cursor position in presence state (Redis/memory)
+    await presenceState.updatePresence(user.uid, user.name || 'Anonymous', message.x, message.y)
 
     // Broadcast cursor position to all other clients in the same project
     const broadcastMessage = JSON.stringify({
@@ -405,13 +403,13 @@ function sendError(ws: WebSocket, error: string) {
 /**
  * Handle client disconnect
  */
-export function handleDisconnect(ws: WebSocket) {
+export async function handleDisconnect(ws: WebSocket) {
   const user = connectedClients.get(ws)
   if (user) {
     logger.info('User disconnected', { uid: user.uid })
 
-    // Remove from presence
-    presenceState.removePresence(user.uid)
+    // Remove from presence (Redis/memory)
+    await presenceState.removePresence(user.uid)
 
     // Get project ID before removing from map
     const projectId = clientProjects.get(ws) || canvasState.DEFAULT_PROJECT_ID

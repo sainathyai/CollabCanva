@@ -5,6 +5,52 @@ import type { CanvasObject } from '../types';
 
 export const canvasFunctions = [
   {
+    name: 'load_template',
+    description: 'Load a predefined template onto the canvas. Templates include animals (cat, dog, bird, fish, rabbit, butterfly, bear), humans (stick-figure, emoji-face, simple-person), objects (house, tree, car, sun, rocket, flower, heart, cloud, moon, rainbow), and scenes (park-scene, city-scene, beach-scene). Use this when user asks to "create a cat", "add a house", "draw a person", "make a heart", etc.',
+    parameters: {
+      type: 'object',
+      properties: {
+        templateName: {
+          type: 'string',
+          enum: ['cat', 'dog', 'bird', 'fish', 'rabbit', 'butterfly', 'bear', 'stick-figure', 'emoji-face', 'simple-person', 'house', 'tree', 'car', 'sun', 'rocket', 'flower', 'heart', 'cloud', 'moon', 'rainbow', 'park-scene', 'city-scene', 'beach-scene'],
+          description: 'The name of the template to load'
+        },
+        x: {
+          type: 'number',
+          description: 'X position where the template should be placed (default: center)',
+          minimum: 0
+        },
+        y: {
+          type: 'number',
+          description: 'Y position where the template should be placed (default: center)',
+          minimum: 0
+        }
+      },
+      required: ['templateName']
+    }
+  },
+  {
+    name: 'export_canvas',
+    description: 'Export the current canvas as a PNG image file. Use this when user asks to "save as image", "download as PNG", "export canvas", "save my work", etc.',
+    parameters: {
+      type: 'object',
+      properties: {
+        filename: {
+          type: 'string',
+          description: 'Name for the exported file (without extension)',
+          default: 'canvas-export'
+        },
+        quality: {
+          type: 'number',
+          description: 'Image quality from 0.1 to 1.0 (default: 1.0)',
+          minimum: 0.1,
+          maximum: 1.0
+        }
+      },
+      required: []
+    }
+  },
+  {
     name: 'generate_random_objects',
     description: 'Generate multiple random shapes with random colors and positions. Use this when user asks for "random objects", "surprise me", or wants variety without specifying exact shape types.',
     parameters: {
@@ -303,7 +349,20 @@ export type CountObjectsParams = {
   type: 'all' | CanvasObject['type'];
 };
 
+export type LoadTemplateParams = {
+  templateName: string;
+  x?: number;
+  y?: number;
+};
+
+export type ExportCanvasParams = {
+  filename?: string;
+  quality?: number;
+};
+
 export type AIFunctionName =
+  | 'load_template'
+  | 'export_canvas'
   | 'generate_random_objects'
   | 'create_shape'
   | 'modify_color'
@@ -317,6 +376,8 @@ export type AIFunctionName =
   | 'count_objects';
 
 export type AIFunctionParams =
+  | LoadTemplateParams
+  | ExportCanvasParams
   | GenerateRandomObjectsParams
   | CreateShapeParams
   | ModifyColorParams

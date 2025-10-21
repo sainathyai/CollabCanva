@@ -1,0 +1,58 @@
+🔧 AWS CLI Commands to Enable ALB Sticky Sessions
+================================================
+
+Step 1: Find your Load Balancer ARN
+------------------------------------
+aws elbv2 describe-load-balancers --query "LoadBalancers[*].[LoadBalancerName,LoadBalancerArn]" --output table
+
+Copy the ARN for your backend ALB (should have 'backend' or 'collabcanva' in name)
+
+
+Step 2: Find your Target Group ARN
+-----------------------------------
+Replace <YOUR_ALB_ARN> with the ARN from Step 1:
+
+aws elbv2 describe-target-groups --load-balancer-arn <YOUR_ALB_ARN> --query "TargetGroups[*].[TargetGroupName,TargetGroupArn]" --output table
+
+Copy the Target Group ARN
+
+
+Step 3: Enable Sticky Sessions
+-------------------------------
+Replace <YOUR_TARGET_GROUP_ARN> with the ARN from Step 2:
+
+aws elbv2 modify-target-group-attributes \
+  --target-group-arn <YOUR_TARGET_GROUP_ARN> \
+  --attributes \
+    Key=stickiness.enabled,Value=true \
+    Key=stickiness.type,Value=lb_cookie \
+    Key=stickiness.lb_cookie.duration_seconds,Value=3600
+
+
+Step 4: Verify Configuration
+-----------------------------
+aws elbv2 describe-target-group-attributes --target-group-arn <YOUR_TARGET_GROUP_ARN> \
+  --query "Attributes[?Key=='stickiness.enabled' || Key=='stickiness.type' || Key=='stickiness.lb_cookie.duration_seconds']" \
+  --output table
+
+Should show:
+- stickiness.enabled = true
+- stickiness.type = lb_cookie
+- stickiness.lb_cookie.duration_seconds = 3600
+
+
+Alternative: AWS Console Method
+================================
+1. Go to EC2 → Load Balancers
+2. Select your backend ALB
+3. Go to Target Groups tab
+4. Select the target group
+5. Click "Attributes" tab
+6. Click "Edit"
+7. Enable "Stickiness"
+8. Select "Load balancer generated cookie"
+9. Set duration to 3600 seconds (1 hour)
+10. Save
+
+✅ This will ensure WebSocket connections stick to the same backend instance!
+

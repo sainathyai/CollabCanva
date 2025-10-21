@@ -1,204 +1,334 @@
-// In-memory canvas state management with DynamoDB persistence
+// Canvas state management with Redis cache for multi-instance scalability
 import { logger } from '../utils/logger.js'
 import type { CanvasObject } from '../ws/messageTypes.js'
 import * as objectService from '../services/objectService.js'
 import { markDirty } from './dirtyFlags.js'
+import { getRedisClient, RedisKeys, canUseRedis } from '../db/redis.js'
 
 export type { CanvasObject }
 
 // Default project ID for legacy support
 export const DEFAULT_PROJECT_ID = 'default-project'
 
-// Multi-project canvas state: Map of projectId -> Map of objectId -> CanvasObject
+// FALLBACK: In-memory cache (only used if Redis is unavailable)
 const projectCanvases = new Map<string, Map<string, CanvasObject>>()
 
 /**
- * Get or create the canvas for a specific project
+ * Get Redis client or fallback to in-memory
  */
 function getProjectCanvas(projectId: string): Map<string, CanvasObject> {
   if (!projectCanvases.has(projectId)) {
-    const newCanvas = new Map<string, CanvasObject>()
-    projectCanvases.set(projectId, newCanvas)
-    logger.debug(`Created new canvas for project: ${projectId}`)
+    projectCanvases.set(projectId, new Map<string, CanvasObject>())
   }
   return projectCanvases.get(projectId)!
 }
 
-logger.info('🔵 Multi-project canvas state initialized', { projectCount: projectCanvases.size })
-
 /**
  * Create a new canvas object
- * Saves to memory immediately, marks project dirty for batch save by auto-save worker
- *
- * @param projectId Project the object belongs to
- * @param object Canvas object to create
+ * Saves to Redis (or memory fallback) immediately
  */
-export function createObject(projectId: string, object: CanvasObject): CanvasObject {
-  const canvas = getProjectCanvas(projectId)
-
-  if (canvas.has(object.id)) {
-    logger.warn('Object already exists, updating instead', { id: object.id, projectId })
-    return updateObject(projectId, object)
+export async function createObject(projectId: string, object: CanvasObject): Promise<CanvasObject> {
+  try {
+    // Try Redis first
+    if (canUseRedis()) {
+      const redis = getRedisClient()
+      const key = RedisKeys.canvasObject(projectId, object.id)
+      const setKey = RedisKeys.canvasObjectIds(projectId)
+      
+      // Store object in Redis
+      await redis.set(key, JSON.stringify(object), 'EX', 3600) // 1 hour TTL
+      await redis.sadd(setKey, object.id)
+      await redis.sadd(RedisKeys.activeProjects(), projectId)
+      
+      logger.info('🟢 Object created in Redis', { id: object.id, projectId })
+    } else {
+      // Fallback to in-memory
+      const canvas = getProjectCanvas(projectId)
+      canvas.set(object.id, object)
+      logger.info('🟡 Object created in memory (Redis unavailable)', { id: object.id, projectId })
+    }
+    
+    // Mark project as dirty for database persistence
+    markDirty(projectId)
+    
+    return object
+  } catch (error) {
+    logger.error('Failed to create object', { error, id: object.id, projectId })
+    // Fallback to in-memory on error
+    const canvas = getProjectCanvas(projectId)
+    canvas.set(object.id, object)
+    return object
   }
-
-  // Write to memory first (fast response)
-  canvas.set(object.id, object)
-  logger.info('🟢 Object created', {
-    id: object.id,
-    type: object.type,
-    createdBy: object.createdBy,
-    projectId,
-    totalObjects: canvas.size,
-    stack: new Error().stack?.split('\n').slice(1, 4).join('\n')
-  })
-
-  // Mark project as dirty - auto-save worker will handle DB write
-  markDirty(projectId)
-
-  return object
 }
 
 /**
- * Update an existing canvas object (last-write-wins)
- * Updates memory immediately, marks project dirty for batch save by auto-save worker
- *
- * @param projectId Project the object belongs to
- * @param object Partial object with id and fields to update
+ * Update an existing canvas object
  */
-export function updateObject(projectId: string, object: Partial<CanvasObject> & { id: string }): CanvasObject {
-  const canvas = getProjectCanvas(projectId)
-  const existing = canvas.get(object.id)
-
-  if (!existing) {
-    logger.warn('Object not found for update, creating new', { id: object.id, projectId })
-    // If object doesn't exist, treat as create (eventually consistent)
-    const newObject: CanvasObject = {
-      type: 'rectangle',
-      x: 0,
-      y: 0,
-      width: 100,
-      height: 100,
-      rotation: 0,
-      color: '#000000',
-      zIndex: 0,
-      createdBy: 'unknown',
-      createdAt: new Date().toISOString(),
+export async function updateObject(projectId: string, object: Partial<CanvasObject> & { id: string }): Promise<CanvasObject> {
+  try {
+    let existing: CanvasObject | undefined
+    
+    // Try Redis first
+    if (canUseRedis()) {
+      const redis = getRedisClient()
+      const key = RedisKeys.canvasObject(projectId, object.id)
+      const existingStr = await redis.get(key)
+      
+      if (existingStr) {
+        existing = JSON.parse(existingStr)
+      }
+    } else {
+      // Fallback to in-memory
+      const canvas = getProjectCanvas(projectId)
+      existing = canvas.get(object.id)
+    }
+    
+    // Create new object if doesn't exist
+    if (!existing) {
+      logger.warn('Object not found for update, creating new', { id: object.id, projectId })
+      const newObject: CanvasObject = {
+        type: 'rectangle',
+        x: 0,
+        y: 0,
+        width: 100,
+        height: 100,
+        rotation: 0,
+        color: '#000000',
+        zIndex: 0,
+        createdBy: 'unknown',
+        createdAt: new Date().toISOString(),
+        ...object,
+        updatedAt: new Date().toISOString(),
+      } as CanvasObject
+      return await createObject(projectId, newObject)
+    }
+    
+    // Merge update
+    const updated: CanvasObject = {
+      ...existing,
       ...object,
       updatedAt: new Date().toISOString(),
-    } as CanvasObject
-    canvas.set(object.id, newObject)
-
-    // Mark project as dirty
+    }
+    
+    // Save to Redis or memory
+    if (canUseRedis()) {
+      const redis = getRedisClient()
+      const key = RedisKeys.canvasObject(projectId, object.id)
+      await redis.set(key, JSON.stringify(updated), 'EX', 3600)
+      logger.debug('Object updated in Redis', { id: object.id, projectId })
+    } else {
+      const canvas = getProjectCanvas(projectId)
+      canvas.set(object.id, updated)
+      logger.debug('Object updated in memory', { id: object.id, projectId })
+    }
+    
     markDirty(projectId)
-
-    return newObject
+    return updated
+  } catch (error) {
+    logger.error('Failed to update object', { error, id: object.id, projectId })
+    throw error
   }
-
-  const updated: CanvasObject = {
-    ...existing,
-    ...object,
-    updatedAt: new Date().toISOString(),
-  }
-
-  // Update memory first (fast response)
-  canvas.set(object.id, updated)
-  logger.debug('Object updated', { id: object.id, projectId })
-
-  // Mark project as dirty - auto-save worker will handle DB write
-  markDirty(projectId)
-
-  return updated
 }
 
 /**
  * Delete a canvas object
- * Removes from memory immediately, deletes from database asynchronously
- *
- * @param projectId Project the object belongs to
- * @param id Object ID to delete
  */
-export function deleteObject(projectId: string, id: string): boolean {
-  const canvas = getProjectCanvas(projectId)
-
-  // Delete from memory first (fast response)
-  const deleted = canvas.delete(id)
-  if (deleted) {
-    logger.debug('Object deleted', { id, projectId })
-
-    // Delete from database asynchronously (immediate, not batched)
-    // Deletions are rare so we don't need to batch them
-    objectService.deleteObject(projectId, id).catch(err => {
-      logger.error('Failed to delete object from database', { id, projectId, error: err })
-    })
-  } else {
-    logger.warn('Object not found for deletion', { id, projectId })
+export async function deleteObject(projectId: string, id: string): Promise<boolean> {
+  try {
+    let deleted = false
+    
+    // Try Redis first
+    if (canUseRedis()) {
+      const redis = getRedisClient()
+      const key = RedisKeys.canvasObject(projectId, id)
+      const setKey = RedisKeys.canvasObjectIds(projectId)
+      
+      const result = await redis.del(key)
+      await redis.srem(setKey, id)
+      deleted = result > 0
+      
+      logger.debug('Object deleted from Redis', { id, projectId, deleted })
+    } else {
+      // Fallback to in-memory
+      const canvas = getProjectCanvas(projectId)
+      deleted = canvas.delete(id)
+      logger.debug('Object deleted from memory', { id, projectId, deleted })
+    }
+    
+    // Delete from database asynchronously
+    if (deleted) {
+      objectService.deleteObject(projectId, id).catch(err => {
+        logger.error('Failed to delete object from database', { id, projectId, error: err })
+      })
+    }
+    
+    return deleted
+  } catch (error) {
+    logger.error('Failed to delete object', { error, id, projectId })
+    return false
   }
-  return deleted
 }
 
 /**
- * Get a single object by ID from a specific project
- *
- * @param projectId Project to search in
- * @param id Object ID
+ * Get a single object by ID
  */
-export function getObject(projectId: string, id: string): CanvasObject | undefined {
-  const canvas = getProjectCanvas(projectId)
-  return canvas.get(id)
+export async function getObject(projectId: string, id: string): Promise<CanvasObject | undefined> {
+  try {
+    // Try Redis first
+    if (canUseRedis()) {
+      const redis = getRedisClient()
+      const key = RedisKeys.canvasObject(projectId, id)
+      const data = await redis.get(key)
+      
+      if (data) {
+        return JSON.parse(data)
+      }
+    } else {
+      // Fallback to in-memory
+      const canvas = getProjectCanvas(projectId)
+      return canvas.get(id)
+    }
+    
+    return undefined
+  } catch (error) {
+    logger.error('Failed to get object', { error, id, projectId })
+    return undefined
+  }
 }
 
 /**
  * Get all canvas objects for a specific project
- *
- * @param projectId Project to get objects from
  */
-export function getAllObjects(projectId: string): CanvasObject[] {
-  const canvas = getProjectCanvas(projectId)
-  const objects = Array.from(canvas.values())
-  logger.info('📦 getAllObjects called', {
-    projectId,
-    count: objects.length,
-    objects: objects.map(o => ({ id: o.id, type: o.type, createdBy: o.createdBy }))
-  })
-  return objects
+export async function getAllObjects(projectId: string): Promise<CanvasObject[]> {
+  try {
+    // Try Redis first
+    if (canUseRedis()) {
+      const redis = getRedisClient()
+      const setKey = RedisKeys.canvasObjectIds(projectId)
+      
+      // Get all object IDs for this project
+      const objectIds = await redis.smembers(setKey)
+      
+      if (objectIds.length === 0) {
+        logger.info('📦 No objects in Redis for project', { projectId })
+        return []
+      }
+      
+      // Fetch all objects in parallel
+      const keys = objectIds.map(id => RedisKeys.canvasObject(projectId, id))
+      const results = await redis.mget(...keys)
+      
+      const objects: CanvasObject[] = []
+      results.forEach((data, index) => {
+        if (data) {
+          try {
+            objects.push(JSON.parse(data))
+          } catch (err) {
+            logger.error('Failed to parse object from Redis', { 
+              error: err, 
+              objectId: objectIds[index],
+              projectId 
+            })
+          }
+        }
+      })
+      
+      logger.info('📦 getAllObjects from Redis', { projectId, count: objects.length })
+      return objects
+    } else {
+      // Fallback to in-memory
+      const canvas = getProjectCanvas(projectId)
+      const objects = Array.from(canvas.values())
+      logger.info('📦 getAllObjects from memory', { projectId, count: objects.length })
+      return objects
+    }
+  } catch (error) {
+    logger.error('Failed to get all objects', { error, projectId })
+    // Fallback to in-memory on error
+    const canvas = getProjectCanvas(projectId)
+    return Array.from(canvas.values())
+  }
 }
 
 /**
- * Clear all objects for a specific project (useful for testing)
- *
- * @param projectId Project to clear
+ * Clear all objects for a specific project
  */
-export function clearAllObjects(projectId: string): void {
-  const canvas = getProjectCanvas(projectId)
-  canvas.clear()
-  logger.info('All objects cleared for project', { projectId })
+export async function clearAllObjects(projectId: string): Promise<void> {
+  try {
+    // Try Redis first
+    if (canUseRedis()) {
+      const redis = getRedisClient()
+      const setKey = RedisKeys.canvasObjectIds(projectId)
+      
+      // Get all object IDs
+      const objectIds = await redis.smembers(setKey)
+      
+      // Delete all object keys
+      if (objectIds.length > 0) {
+        const keys = objectIds.map(id => RedisKeys.canvasObject(projectId, id))
+        await redis.del(...keys)
+      }
+      
+      // Clear the set
+      await redis.del(setKey)
+      await redis.srem(RedisKeys.activeProjects(), projectId)
+      
+      logger.info('All objects cleared from Redis', { projectId })
+    } else {
+      // Fallback to in-memory
+      const canvas = getProjectCanvas(projectId)
+      canvas.clear()
+      logger.info('All objects cleared from memory', { projectId })
+    }
+  } catch (error) {
+    logger.error('Failed to clear objects', { error, projectId })
+  }
 }
 
 /**
  * Get object count for a specific project
- *
- * @param projectId Project to count objects in
  */
-export function getObjectCount(projectId: string): number {
-  const canvas = getProjectCanvas(projectId)
-  return canvas.size
+export async function getObjectCount(projectId: string): Promise<number> {
+  try {
+    // Try Redis first
+    if (canUseRedis()) {
+      const redis = getRedisClient()
+      const setKey = RedisKeys.canvasObjectIds(projectId)
+      return await redis.scard(setKey)
+    } else {
+      // Fallback to in-memory
+      const canvas = getProjectCanvas(projectId)
+      return canvas.size
+    }
+  } catch (error) {
+    logger.error('Failed to get object count', { error, projectId })
+    return 0
+  }
 }
 
 /**
  * Get list of all active project IDs
  */
-export function getAllProjectIds(): string[] {
-  return Array.from(projectCanvases.keys())
+export async function getAllProjectIds(): Promise<string[]> {
+  try {
+    // Try Redis first
+    if (canUseRedis()) {
+      const redis = getRedisClient()
+      return await redis.smembers(RedisKeys.activeProjects())
+    } else {
+      // Fallback to in-memory
+      return Array.from(projectCanvases.keys())
+    }
+  } catch (error) {
+    logger.error('Failed to get project IDs', { error })
+    return []
+  }
 }
 
 /**
  * Get all canvas objects for a specific project (for auto-save worker)
- * Used by auto-save worker to batch save all objects
- *
- * @param projectId Project ID to get objects for
- * @returns Array of canvas objects formatted for database
  */
-export function getAllObjectsForProject(projectId: string): Array<{
+export async function getAllObjectsForProject(projectId: string): Promise<Array<{
   objectId: string
   type: string
   x: number
@@ -212,11 +342,10 @@ export function getAllObjectsForProject(projectId: string): Array<{
   fontFamily?: string
   createdBy: string
   zIndex?: number
-}> {
-  const canvas = getProjectCanvas(projectId)
-
-  // Map WebSocket format to database format
-  return Array.from(canvas.values()).map(obj => ({
+}>> {
+  const objects = await getAllObjects(projectId)
+  
+  return objects.map(obj => ({
     objectId: obj.id,
     type: obj.type,
     x: obj.x,
@@ -234,46 +363,84 @@ export function getAllObjectsForProject(projectId: string): Array<{
 }
 
 /**
- * Load all objects from database into memory for a specific project
- * Called on server startup or when user opens a project
- *
- * @param projectId Project to load objects for
+ * Load all objects from database into Redis/memory for a specific project
  */
 export async function loadFromDatabase(projectId: string): Promise<number> {
   try {
     logger.info('Loading objects from database...', { projectId })
     const dbObjects = await objectService.loadObjects(projectId)
-
-    const canvas = getProjectCanvas(projectId)
-
-    // Map database objects to WebSocket format and load into memory
-    for (const dbObj of dbObjects) {
-      const canvasObj: CanvasObject = {
-        id: dbObj.objectId,
-        type: dbObj.type as any,
-        x: dbObj.x,
-        y: dbObj.y,
-        width: dbObj.width || 100,
-        height: dbObj.height || 100,
-        rotation: dbObj.rotation || 0,
-        color: dbObj.color || '#000000',
-        zIndex: 0, // Default zIndex
-        text: dbObj.text,
-        fontSize: dbObj.fontSize,
-        fontFamily: dbObj.fontFamily,
-        createdBy: dbObj.createdBy,
-        createdAt: dbObj.createdAt,
-        updatedAt: dbObj.updatedAt
+    
+    let loaded = 0
+    
+    // Try Redis first
+    if (canUseRedis()) {
+      const redis = getRedisClient()
+      const pipeline = redis.pipeline()
+      
+      for (const dbObj of dbObjects) {
+        const canvasObj: CanvasObject = {
+          id: dbObj.objectId,
+          type: dbObj.type as any,
+          x: dbObj.x,
+          y: dbObj.y,
+          width: dbObj.width || 100,
+          height: dbObj.height || 100,
+          rotation: dbObj.rotation || 0,
+          color: dbObj.color || '#000000',
+          zIndex: 0,
+          text: dbObj.text,
+          fontSize: dbObj.fontSize,
+          fontFamily: dbObj.fontFamily,
+          createdBy: dbObj.createdBy,
+          createdAt: dbObj.createdAt,
+          updatedAt: dbObj.updatedAt
+        }
+        
+        const key = RedisKeys.canvasObject(projectId, canvasObj.id)
+        const setKey = RedisKeys.canvasObjectIds(projectId)
+        
+        pipeline.set(key, JSON.stringify(canvasObj), 'EX', 3600)
+        pipeline.sadd(setKey, canvasObj.id)
+        loaded++
       }
-
-      canvas.set(canvasObj.id, canvasObj)
+      
+      pipeline.sadd(RedisKeys.activeProjects(), projectId)
+      await pipeline.exec()
+      
+      logger.info(`✅ Loaded ${loaded} objects from database to Redis for project ${projectId}`)
+    } else {
+      // Fallback to in-memory
+      const canvas = getProjectCanvas(projectId)
+      
+      for (const dbObj of dbObjects) {
+        const canvasObj: CanvasObject = {
+          id: dbObj.objectId,
+          type: dbObj.type as any,
+          x: dbObj.x,
+          y: dbObj.y,
+          width: dbObj.width || 100,
+          height: dbObj.height || 100,
+          rotation: dbObj.rotation || 0,
+          color: dbObj.color || '#000000',
+          zIndex: 0,
+          text: dbObj.text,
+          fontSize: dbObj.fontSize,
+          fontFamily: dbObj.fontFamily,
+          createdBy: dbObj.createdBy,
+          createdAt: dbObj.createdAt,
+          updatedAt: dbObj.updatedAt
+        }
+        
+        canvas.set(canvasObj.id, canvasObj)
+        loaded++
+      }
+      
+      logger.info(`✅ Loaded ${loaded} objects from database to memory for project ${projectId}`)
     }
-
-    logger.info(`✅ Loaded ${dbObjects.length} objects from database for project ${projectId}`)
-    return dbObjects.length
+    
+    return loaded
   } catch (error) {
     logger.error('Failed to load objects from database', { projectId, error })
     return 0
   }
 }
-

@@ -39,6 +39,7 @@ class WebSocketClient {
   private maxReconnectAttempts = 10 // 🚀 Increased from 5 to 10 for heavy loads
   private reconnectDelay = 2000 // 🚀 Increased from 1s to 2s for better stability
   private messageHandlers: Set<MessageHandler> = new Set()
+  private reconnectHandlers: Set<() => void> = new Set()
   private isIntentionallyClosed = false
   private connectionReady = false
 
@@ -58,7 +59,15 @@ class WebSocketClient {
         this.ws.onopen = () => {
           console.log('WebSocket connected')
           this.connectionReady = true
+          const isReconnect = this.reconnectAttempts > 0
           this.reconnectAttempts = 0
+          
+          // Notify reconnect handlers if this is a reconnection
+          if (isReconnect) {
+            console.log('🔄 Reconnected - triggering reconnect handlers')
+            this.reconnectHandlers.forEach(handler => handler())
+          }
+          
           resolve()
         }
 
@@ -168,6 +177,17 @@ class WebSocketClient {
    */
   isConnected(): boolean {
     return this.ws !== null && this.ws.readyState === WebSocket.OPEN
+  }
+
+  /**
+   * Subscribe to reconnection events
+   * Returns unsubscribe function
+   */
+  onReconnect(handler: () => void): () => void {
+    this.reconnectHandlers.add(handler)
+    return () => {
+      this.reconnectHandlers.delete(handler)
+    }
   }
 
   /**

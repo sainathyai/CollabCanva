@@ -15,6 +15,13 @@ const firebaseConfig = {
   projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID,
 }
 
+// Log config to verify environment variables are loaded
+console.log('Firebase config loaded:', {
+  apiKey: firebaseConfig.apiKey ? '***' + firebaseConfig.apiKey.slice(-4) : 'MISSING',
+  authDomain: firebaseConfig.authDomain || 'MISSING',
+  projectId: firebaseConfig.projectId || 'MISSING'
+})
+
 // Initialize Firebase
 let app: ReturnType<typeof initializeApp> | null = null
 let auth: ReturnType<typeof getAuth> | null = null
@@ -35,13 +42,15 @@ export function getAuthInstance() {
   return auth!
 }
 
-// Sign in with Google
-export async function signInWithGoogle(): Promise<User> {
+// Sign in with Google (uses popup for custom domain compatibility)
+export async function signInWithGoogle(): Promise<User | null> {
   const authInstance = getAuthInstance()
   const provider = new GoogleAuthProvider()
-  
+
   try {
+    console.log('Starting Google sign-in with popup...')
     const result = await signInWithPopup(authInstance, provider)
+    console.log('Sign-in successful:', result.user.email)
     return result.user
   } catch (error) {
     console.error('Error signing in with Google:', error)
@@ -52,7 +61,7 @@ export async function signInWithGoogle(): Promise<User> {
 // Sign out
 export async function signOut(): Promise<void> {
   const authInstance = getAuthInstance()
-  
+
   try {
     await firebaseSignOut(authInstance)
   } catch (error) {

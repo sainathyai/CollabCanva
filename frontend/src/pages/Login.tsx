@@ -10,15 +10,21 @@ function Login() {
   const handleGoogleSignIn = async () => {
     setLoading(true)
     setError(null)
-    
+
     try {
-      await signInWithGoogle()
-      // Redirect to canvas on successful sign-in
-      navigate('/canvas')
+      console.log('User clicked Sign in with Google')
+      const user = await signInWithGoogle()
+      console.log('Sign-in complete, user:', user?.email)
+      
+      // Popup returns immediately with user, so we can navigate
+      // Router's auth listener will also update isAuthenticated state
+      if (user) {
+        console.log('Navigating to dashboard...')
+        navigate('/dashboard')
+      }
     } catch (err) {
       console.error('Sign in error:', err)
       setError('Failed to sign in with Google. Please try again.')
-    } finally {
       setLoading(false)
     }
   }
@@ -29,24 +35,24 @@ function Login() {
         <div className="login-card">
           <h1>CollabCanvas</h1>
           <p className="login-subtitle">Real-time Collaborative Whiteboard</p>
-          
+
           <div className="login-content">
             <p>Sign in to start collaborating</p>
-            
+
             {error && (
-              <div className="error-message" style={{ 
-                color: '#dc3545', 
-                marginBottom: '1rem', 
-                padding: '0.5rem', 
-                backgroundColor: '#f8d7da', 
-                borderRadius: '4px' 
+              <div className="error-message" style={{
+                color: '#dc3545',
+                marginBottom: '1rem',
+                padding: '0.5rem',
+                backgroundColor: '#f8d7da',
+                borderRadius: '4px'
               }}>
                 {error}
               </div>
             )}
-            
-            <button 
-              className="btn-google" 
+
+            <button
+              className="btn-google"
               onClick={handleGoogleSignIn}
               disabled={loading}
             >

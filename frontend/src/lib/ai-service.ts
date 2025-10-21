@@ -52,23 +52,25 @@ Available shape types: rectangle, circle, triangle, star, ellipse, roundedRect, 
 
 ${contextMessage}
 
-IMPORTANT SYSTEM LIMITS:
-- The generate_random_objects function technically processes 100 objects per batch
-- However, when you call the function, you can pass ANY count (even 500+)
-- The system will automatically handle batching on the backend
-- If a user requests MORE than 100 objects (e.g., "create 200 objects"):
-  1. FIRST TIME: Politely inform them about the 100/batch limit
-  2. Suggest: "I can create 100 now, or create them in batches to reach your desired count"
-  3. If user CONFIRMS: Call generate_random_objects ONCE with the full count (e.g., 550)
+AVAILABLE CAPABILITIES:
+1. TEMPLATES: Use load_template function when users ask to create animals, people, or objects:
+   - Animals: cat, dog, bird, fish
+   - Humans: stick-figure, emoji-face, simple-person
+   - Objects: house, tree, car, sun, rocket, flower
+   - Scenes: rainbow, park-scene, beach-scene
+   Examples: "create a cat", "draw a house", "add a dog"
 
-CRITICAL: When user confirms, call the function ONCE with the FULL requested count. Do NOT try to call it multiple times yourself.
+2. EXPORT: Use export_canvas function when users want to save/download:
+   Examples: "export as PNG", "save canvas", "download image", "export with filename my-art"
 
-Example responses:
-- User: "create 550 objects" → "I can generate up to 100 objects at once. Would you like me to create 100, or create them in batches to reach 550?"
-- User: "yes, create in batches" → Call generate_random_objects ONCE with count: 550 (system handles batching automatically)
-- User: "create 50 objects" → Call generate_random_objects with count: 50 (no warning needed)
+3. SHAPE CREATION: Use create_shape for specific shapes
+   Available: rectangle, circle, triangle, star, ellipse, roundedRect, diamond, pentagon, polygon, arrow, line, text
 
-When users make requests, use the provided functions to execute canvas operations. Be helpful and understand natural language commands like "create 3 red circles" or "make everything blue".`
+4. RANDOM OBJECTS: Use generate_random_objects for variety
+   - System handles batching automatically for large counts
+   - For 100+ objects, inform user about batching but call function ONCE with full count
+
+When users make requests, intelligently choose the right function. Be helpful and understand natural language commands.`
       }
     ];
 
@@ -82,30 +84,38 @@ When users make requests, use the provided functions to execute canvas operation
       content: prompt
     });
 
-    // Call OpenAI with function calling
+    // Call OpenAI with function calling (using new tools format)
     const response = await openai.chat.completions.create({
       model: 'gpt-4-turbo-preview',
       messages,
-      functions: canvasFunctions as any,
-      function_call: 'auto',
+      tools: canvasFunctions.map(func => ({
+        type: 'function' as const,
+        function: func
+      })),
+      tool_choice: 'auto',
       temperature: 0.7
     });
 
     const choice = response.choices[0];
 
-    // Check if AI wants to call a function
-    if (choice.message.function_call) {
-      const functionName = choice.message.function_call.name as AIFunctionName;
-      const parameters = JSON.parse(choice.message.function_call.arguments);
+    // Check if AI wants to call a function (new tools format)
+    if (choice.message.tool_calls && choice.message.tool_calls.length > 0) {
+      const toolCall = choice.message.tool_calls[0];
+      
+      // Type guard: ensure this is a function tool call
+      if (toolCall.type === 'function' && 'function' in toolCall) {
+        const functionName = toolCall.function.name as AIFunctionName;
+        const parameters = JSON.parse(toolCall.function.arguments);
 
-      return {
-        success: true,
-        message: choice.message.content || 'Executing command...',
-        functionCall: {
-          name: functionName,
-          parameters
-        }
-      };
+        return {
+          success: true,
+          message: choice.message.content || 'Executing command...',
+          functionCall: {
+            name: functionName,
+            parameters
+          }
+        };
+      }
     }
 
     // Regular message response (no function call)
