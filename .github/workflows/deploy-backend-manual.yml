@@ -1,0 +1,154 @@
+name: Deploy Backend to ECS (Manual with Task Definition)
+
+on:
+  workflow_dispatch: # Manual trigger only
+    inputs:
+      use_latest_task_def:
+        description: 'Use latest task definition from deployment/aws/task-definition.json'
+        required: false
+        default: 'true'
+        type: boolean
+
+env:
+  AWS_REGION: us-east-2
+  ECR_REPOSITORY: collabcanvas-backend
+  ECS_SERVICE: collabcanvas-backend-service
+  ECS_CLUSTER: collabcanvas-cluster
+  ECS_TASK_DEFINITION: collabcanvas-backend-task
+  CONTAINER_NAME: collabcanvas-backend
+
+jobs:
+  deploy:
+    name: Deploy to ECS
+    runs-on: ubuntu-latest
+    environment: production
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Configure AWS credentials
+      uses: aws-actions/configure-aws-credentials@v4
+      with:
+        aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+        aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        aws-region: ${{ env.AWS_REGION }}
+
+    - name: Login to Amazon ECR
+      id: login-ecr
+      uses: aws-actions/amazon-ecr-login@v2
+
+    - name: Build, tag, and push image to Amazon ECR
+      id: build-image
+      env:
+        ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+        IMAGE_TAG: ${{ github.sha }}
+      run: |
+        # Build Docker image
+        cd backend
+        docker build -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG .
+        docker tag $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG $ECR_REGISTRY/$ECR_REPOSITORY:latest
+        
+        # Push both tagged versions
+        docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
+        docker push $ECR_REGISTRY/$ECR_REPOSITORY:latest
+        
+        echo "image=$ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG" >> $GITHUB_OUTPUT
+        echo "image_latest=$ECR_REGISTRY/$ECR_REPOSITORY:latest" >> $GITHUB_OUTPUT
+
+    - name: Register new task definition
+      if: ${{ github.event.inputs.use_latest_task_def == 'true' }}
+      run: |
+        # Update image in task definition file
+        cd deployment/aws
+        # Use sed to replace the image URI (works on Linux)
+        sed -i "s|971422717446.dkr.ecr.us-east-2.amazonaws.com/collabcanvas-backend:latest|${{ steps.build-image.outputs.image }}|g" task-definition.json
+        
+        # Register the new task definition
+        aws ecs register-task-definition \
+          --cli-input-json file://task-definition.json \
+          --region ${{ env.AWS_REGION }}
+        
+        # Get the new revision number
+        TASK_DEF_ARN=$(aws ecs describe-task-definitions \
+          --family-prefix ${{ env.ECS_TASK_DEFINITION }} \
+          --sort DESC \
+          --max-items 1 \
+          --query "taskDefinitionArns[0]" \
+          --output text \
+          --region ${{ env.AWS_REGION }})
+        
+        echo "TASK_DEF_ARN=$TASK_DEF_ARN" >> $GITHUB_ENV
+        echo "✅ Registered new task definition: $TASK_DEF_ARN"
+
+    - name: Use existing task definition
+      if: ${{ github.event.inputs.use_latest_task_def != 'true' }}
+      run: |
+        # Download current task definition
+        aws ecs describe-task-definition \
+          --task-definition ${{ env.ECS_TASK_DEFINITION }} \
+          --query taskDefinition > task-definition.json
+        
+        # Update image in task definition using jq
+        jq --arg IMAGE "${{ steps.build-image.outputs.image }}" \
+          --arg CONTAINER "${{ env.CONTAINER_NAME }}" \
+          '(.containerDefinitions[] | select(.name == $CONTAINER) | .image) = $IMAGE' \
+          task-definition.json > task-definition-updated.json
+        mv task-definition-updated.json task-definition.json
+        
+        # Register new task definition
+        aws ecs register-task-definition \
+          --cli-input-json file://task-definition.json \
+          --region ${{ env.AWS_REGION }}
+        
+        TASK_DEF_ARN=$(aws ecs describe-task-definitions \
+          --family-prefix ${{ env.ECS_TASK_DEFINITION }} \
+          --sort DESC \
+          --max-items 1 \
+          --query "taskDefinitionArns[0]" \
+          --output text \
+          --region ${{ env.AWS_REGION }})
+        
+        echo "TASK_DEF_ARN=$TASK_DEF_ARN" >> $GITHUB_ENV
+        echo "✅ Registered new task definition: $TASK_DEF_ARN"
+
+    - name: Deploy to ECS
+      run: |
+        # Get the latest task definition ARN if not set
+        if [ -z "$TASK_DEF_ARN" ]; then
+          TASK_DEF_ARN=$(aws ecs describe-task-definitions \
+            --family-prefix ${{ env.ECS_TASK_DEFINITION }} \
+            --sort DESC \
+            --max-items 1 \
+            --query "taskDefinitionArns[0]" \
+            --output text \
+            --region ${{ env.AWS_REGION }})
+        fi
+        
+        # Update ECS service
+        aws ecs update-service \
+          --cluster ${{ env.ECS_CLUSTER }} \
+          --service ${{ env.ECS_SERVICE }} \
+          --task-definition $TASK_DEF_ARN \
+          --force-new-deployment \
+          --region ${{ env.AWS_REGION }}
+        
+        echo "✅ Service update initiated with task definition: $TASK_DEF_ARN"
+
+    - name: Wait for service stability
+      run: |
+        echo "⏳ Waiting for service to stabilize (this may take 2-5 minutes)..."
+        aws ecs wait services-stable \
+          --cluster ${{ env.ECS_CLUSTER }} \
+          --services ${{ env.ECS_SERVICE }} \
+          --region ${{ env.AWS_REGION }}
+        echo "✅ Service is stable!"
+
+    - name: Deployment Status
+      run: |
+        echo "✅ Deployment completed successfully!"
+        echo "Image: ${{ steps.build-image.outputs.image }}"
+        echo "Service: ${{ env.ECS_SERVICE }}"
+        echo "Cluster: ${{ env.ECS_CLUSTER }}"
+        echo "Backend URL: http://collabcanvas-alb-1957081275.us-east-2.elb.amazonaws.com"
+
