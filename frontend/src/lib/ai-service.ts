@@ -6,9 +6,13 @@ const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8080';
 
 // Debug: Always log the API URL to verify it's correct
 // FORCE LOG - This should ALWAYS appear
+// VERSION: 2025-01-XX - Backend API only, no OpenAI direct calls
+console.log('🔧🔧🔧 ===== AI SERVICE LOADED =====');
+console.log('🔧🔧🔧 VERSION: Backend API Only (2025-01-XX)');
 console.log('🔧🔧🔧 API_BASE_URL:', API_BASE_URL);
 console.log('🔧🔧🔧 VITE_API_URL env:', import.meta.env.VITE_API_URL);
-console.log('🔧🔧🔧 ai-service.ts loaded at:', new Date().toISOString());
+console.log('🔧🔧🔧 Loaded at:', new Date().toISOString());
+console.log('🔧🔧🔧 ============================');
 
 export interface AIContext {
   objects: CanvasObject[];

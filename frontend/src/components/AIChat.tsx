@@ -108,7 +108,8 @@ export function AIChat({ context, onExecuteFunction, isOpen, onToggle }: AIChatP
           content: m.content
         }));
 
-      // Process command with AI
+      // Process command with AI (via backend API)
+      console.log('🤖🤖🤖 Calling processAICommand - should use backend API');
       const response = await processAICommand(input, context, conversationHistory);
 
       if (response.success && response.functionCall) {
