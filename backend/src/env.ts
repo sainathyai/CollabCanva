@@ -19,6 +19,8 @@ export interface EnvConfig {
   DYNAMODB_OBJECTS_TABLE: string
   DYNAMODB_COLLABORATORS_TABLE: string
   DYNAMODB_USERS_TABLE: string
+  // OpenAI Configuration
+  OPENAI_API_KEY?: string
 }
 
 function parseEnv(): EnvConfig {
@@ -46,6 +48,9 @@ function parseEnv(): EnvConfig {
   const dynamodbCollaboratorsTable = process.env.DYNAMODB_COLLABORATORS_TABLE || 'collabcanvas-collaborators'
   const dynamodbUsersTable = process.env.DYNAMODB_USERS_TABLE || 'collabcanvas-users'
 
+  // OpenAI Configuration
+  const openaiApiKey = process.env.OPENAI_API_KEY
+
   return {
     PORT: port,
     ALLOWED_ORIGINS: allowedOrigins,
@@ -58,7 +63,8 @@ function parseEnv(): EnvConfig {
     DYNAMODB_PROJECTS_TABLE: dynamodbProjectsTable,
     DYNAMODB_OBJECTS_TABLE: dynamodbObjectsTable,
     DYNAMODB_COLLABORATORS_TABLE: dynamodbCollaboratorsTable,
-    DYNAMODB_USERS_TABLE: dynamodbUsersTable
+    DYNAMODB_USERS_TABLE: dynamodbUsersTable,
+    OPENAI_API_KEY: openaiApiKey
   }
 }
 

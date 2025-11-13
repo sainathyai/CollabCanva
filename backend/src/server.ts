@@ -4,6 +4,7 @@ import { logger } from './utils/logger.js'
 import { healthHandler } from './http/health.js'
 import { metricsHandler } from './http/metrics.js'
 import { projectsHandler } from './http/projects.js'
+import { aiHandler } from './http/ai.js'
 import { setupWebSocket } from './ws/index.js'
 import { initializeDatabase } from './db/dynamodb.js'
 import { initializeRedis, closeRedis } from './db/redis.js'
@@ -41,6 +42,16 @@ const server = http.createServer((req, res) => {
   // Project API routes
   if (req.url?.startsWith('/api/projects')) {
     projectsHandler(req, res)
+    return
+  }
+
+  // AI API routes
+  if (req.url === '/api/ai/chat' && req.method === 'POST') {
+    aiHandler(req, res).catch(error => {
+      logger.error('Error in AI handler:', error)
+      res.writeHead(500, { 'Content-Type': 'application/json' })
+      res.end(JSON.stringify({ error: 'Internal server error' }))
+    })
     return
   }
 

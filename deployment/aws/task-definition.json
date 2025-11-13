@@ -31,6 +31,10 @@
         {
           "name": "FIREBASE_PRIVATE_KEY",
           "valueFrom": "/collabcanvas/prod/firebase-private-key"
+        },
+        {
+          "name": "OPENAI_API_KEY",
+          "valueFrom": "arn:aws:secretsmanager:us-east-1:971422717446:secret:openai/sainathyai-hqw6y2"
         }
       ],
       "environment": [
