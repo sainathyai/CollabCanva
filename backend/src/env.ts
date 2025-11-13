@@ -55,12 +55,16 @@ function parseEnv(): EnvConfig {
     try {
       // Try to parse as JSON (in case secret is stored as JSON object)
       const parsed = JSON.parse(openaiApiKey)
-      if (typeof parsed === 'object' && parsed !== null) {
+      if (typeof parsed === 'object' && parsed !== null && !Array.isArray(parsed)) {
         // Extract apiKey, api_key1, or api_key2 (in that order of preference)
-        openaiApiKey = parsed.apiKey || parsed.api_key1 || parsed.api_key2 || openaiApiKey
+        const extractedKey = parsed.apiKey || parsed.api_key1 || parsed.api_key2
+        if (extractedKey && typeof extractedKey === 'string') {
+          openaiApiKey = extractedKey
+        }
       }
-    } catch {
+    } catch (e) {
       // Not JSON, use as-is (plain string)
+      // This is expected if the secret is stored as a plain string
     }
   }
 
