@@ -52,19 +52,37 @@ function parseEnv(): EnvConfig {
   // Handle both plain string and JSON object formats from Secrets Manager
   let openaiApiKey = process.env.OPENAI_API_KEY
   if (openaiApiKey) {
-    try {
+    // Trim whitespace first
+    openaiApiKey = openaiApiKey.trim()
+    
+    // Check if it looks like a valid OpenAI API key (starts with sk-)
+    if (openaiApiKey.startsWith('sk-')) {
+      // Already a valid key, use as-is
+    } else {
       // Try to parse as JSON (in case secret is stored as JSON object)
-      const parsed = JSON.parse(openaiApiKey)
-      if (typeof parsed === 'object' && parsed !== null && !Array.isArray(parsed)) {
-        // Extract apiKey, api_key1, or api_key2 (in that order of preference)
-        const extractedKey = parsed.apiKey || parsed.api_key1 || parsed.api_key2
-        if (extractedKey && typeof extractedKey === 'string') {
-          openaiApiKey = extractedKey
+      try {
+        const parsed = JSON.parse(openaiApiKey)
+        if (typeof parsed === 'object' && parsed !== null && !Array.isArray(parsed)) {
+          // Extract apiKey, api_key1, or api_key2 (in that order of preference)
+          const extractedKey = parsed.apiKey || parsed.api_key1 || parsed.api_key2
+          if (extractedKey && typeof extractedKey === 'string' && extractedKey.startsWith('sk-')) {
+            openaiApiKey = extractedKey.trim()
+          } else {
+            // Invalid key format, set to undefined
+            openaiApiKey = undefined
+          }
+        } else if (typeof parsed === 'string' && parsed.startsWith('sk-')) {
+          // JSON string containing the key
+          openaiApiKey = parsed.trim()
+        } else {
+          // Invalid format, set to undefined
+          openaiApiKey = undefined
         }
+      } catch (e) {
+        // Not JSON and doesn't start with sk-, likely corrupted
+        // Set to undefined to disable AI features
+        openaiApiKey = undefined
       }
-    } catch (e) {
-      // Not JSON, use as-is (plain string)
-      // This is expected if the secret is stored as a plain string
     }
   }
 
