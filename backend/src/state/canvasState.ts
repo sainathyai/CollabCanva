@@ -157,9 +157,17 @@ export async function deleteObject(projectId: string, id: string): Promise<boole
     
     // Delete from database asynchronously
     if (deleted) {
-      objectService.deleteObject(projectId, id).catch(err => {
-        logger.error('Failed to delete object from database', { id, projectId, error: err })
-      })
+      objectService.deleteObject(projectId, id)
+        .then(success => {
+          if (success) {
+            logger.info('✅ Object deleted from database', { id, projectId })
+          } else {
+            logger.warn('⚠️ Object delete from database returned false', { id, projectId })
+          }
+        })
+        .catch(err => {
+          logger.error('❌ Failed to delete object from database', { id, projectId, error: err })
+        })
     }
     
     return deleted

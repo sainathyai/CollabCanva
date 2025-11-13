@@ -329,6 +329,7 @@ async function handleObjectDelete(ws: WebSocket, message: ObjectDeleteMessage) {
     const projectId = clientProjects.get(ws) || canvasState.DEFAULT_PROJECT_ID
 
     // Delete object from state for this project (Redis/memory)
+    logger.info('🗑️ Processing delete request', { objectId: message.objectId, projectId, userId: user.uid })
     const deleted = await canvasState.deleteObject(projectId, message.objectId)
 
     if (deleted) {
@@ -340,8 +341,14 @@ async function handleObjectDelete(ws: WebSocket, message: ObjectDeleteMessage) {
       })
 
       broadcastToProject(projectId, broadcastMessage)
-      logger.info('Object deleted and broadcasted', { id: message.objectId, projectId })
+      logger.info('✅ Object deleted and broadcasted', { 
+        id: message.objectId, 
+        projectId,
+        userId: user.uid,
+        timestamp: new Date().toISOString()
+      })
     } else {
+      logger.warn('⚠️ Object not found for deletion', { objectId: message.objectId, projectId })
       sendError(ws, 'Object not found')
     }
   } catch (error) {
