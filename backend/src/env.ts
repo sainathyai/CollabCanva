@@ -49,7 +49,20 @@ function parseEnv(): EnvConfig {
   const dynamodbUsersTable = process.env.DYNAMODB_USERS_TABLE || 'collabcanvas-users'
 
   // OpenAI Configuration
-  const openaiApiKey = process.env.OPENAI_API_KEY
+  // Handle both plain string and JSON object formats from Secrets Manager
+  let openaiApiKey = process.env.OPENAI_API_KEY
+  if (openaiApiKey) {
+    try {
+      // Try to parse as JSON (in case secret is stored as JSON object)
+      const parsed = JSON.parse(openaiApiKey)
+      if (typeof parsed === 'object' && parsed !== null) {
+        // Extract apiKey, api_key1, or api_key2 (in that order of preference)
+        openaiApiKey = parsed.apiKey || parsed.api_key1 || parsed.api_key2 || openaiApiKey
+      }
+    } catch {
+      // Not JSON, use as-is (plain string)
+    }
+  }
 
   return {
     PORT: port,
