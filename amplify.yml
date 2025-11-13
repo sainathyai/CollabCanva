@@ -4,10 +4,15 @@ frontend:
     preBuild:
       commands:
         - cd frontend
-        - npm ci
+        - echo "🔧 Building with VITE_API_URL=$VITE_API_URL"
+        - echo "🔧 Node version: $(node --version)"
+        - echo "🔧 NPM version: $(npm --version)"
+        - npm ci --prefer-offline=false
     build:
       commands:
+        - echo "🔧 Starting build..."
         - npm run build
+        - echo "✅ Build complete"
   artifacts:
     baseDirectory: frontend/dist
     files:
