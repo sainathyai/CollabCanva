@@ -4,6 +4,12 @@ import type { CanvasObject } from '../types';
 // Backend API base URL
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8080';
 
+// Debug: Log the API URL (remove in production if needed)
+if (import.meta.env.DEV) {
+  console.log('🔧 API_BASE_URL:', API_BASE_URL);
+  console.log('🔧 VITE_API_URL env:', import.meta.env.VITE_API_URL);
+}
+
 export interface AIContext {
   objects: CanvasObject[];
   selectedIds: Set<string>;
@@ -38,7 +44,9 @@ export async function processAICommand(
     };
 
     // Call backend AI API
-    const response = await fetch(`${API_BASE_URL}/api/ai/chat`, {
+    const apiUrl = `${API_BASE_URL}/api/ai/chat`;
+    console.log('📡 Calling backend AI API:', apiUrl);
+    const response = await fetch(apiUrl, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json'
