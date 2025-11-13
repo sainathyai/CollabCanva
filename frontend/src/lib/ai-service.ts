@@ -5,8 +5,10 @@ import type { CanvasObject } from '../types';
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8080';
 
 // Debug: Always log the API URL to verify it's correct
-console.log('🔧 API_BASE_URL:', API_BASE_URL);
-console.log('🔧 VITE_API_URL env:', import.meta.env.VITE_API_URL);
+// FORCE LOG - This should ALWAYS appear
+console.log('🔧🔧🔧 API_BASE_URL:', API_BASE_URL);
+console.log('🔧🔧🔧 VITE_API_URL env:', import.meta.env.VITE_API_URL);
+console.log('🔧🔧🔧 ai-service.ts loaded at:', new Date().toISOString());
 
 export interface AIContext {
   objects: CanvasObject[];
@@ -43,7 +45,9 @@ export async function processAICommand(
 
     // Call backend AI API
     const apiUrl = `${API_BASE_URL}/api/ai/chat`;
-    console.log('📡 Calling backend AI API:', apiUrl);
+    console.log('📡📡📡 CALLING BACKEND AI API:', apiUrl);
+    console.log('📡📡📡 API_BASE_URL value:', API_BASE_URL);
+    console.log('📡📡📡 This is processAICommand function - NEW CODE');
     const response = await fetch(apiUrl, {
       method: 'POST',
       headers: {
