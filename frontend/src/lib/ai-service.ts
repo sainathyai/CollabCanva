@@ -4,11 +4,9 @@ import type { CanvasObject } from '../types';
 // Backend API base URL
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8080';
 
-// Debug: Log the API URL (remove in production if needed)
-if (import.meta.env.DEV) {
-  console.log('🔧 API_BASE_URL:', API_BASE_URL);
-  console.log('🔧 VITE_API_URL env:', import.meta.env.VITE_API_URL);
-}
+// Debug: Always log the API URL to verify it's correct
+console.log('🔧 API_BASE_URL:', API_BASE_URL);
+console.log('🔧 VITE_API_URL env:', import.meta.env.VITE_API_URL);
 
 export interface AIContext {
   objects: CanvasObject[];
