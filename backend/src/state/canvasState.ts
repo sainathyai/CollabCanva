@@ -383,6 +383,19 @@ export async function loadFromDatabase(projectId: string): Promise<number> {
     // Try Redis first
     if (canUseRedis()) {
       const redis = getRedisClient()
+      
+      // CRITICAL FIX: Clear existing objects in Redis first to prevent merge issues
+      // This ensures database is the source of truth when loading
+      const setKey = RedisKeys.canvasObjectIds(projectId)
+      const existingIds = await redis.smembers(setKey)
+      
+      if (existingIds.length > 0) {
+        logger.info(`🧹 Clearing ${existingIds.length} existing objects from Redis before loading from database`, { projectId })
+        const keysToDelete = existingIds.map(id => RedisKeys.canvasObject(projectId, id))
+        await redis.del(...keysToDelete)
+        await redis.del(setKey)
+      }
+      
       const pipeline = redis.pipeline()
       
       for (const dbObj of dbObjects) {
@@ -419,6 +432,10 @@ export async function loadFromDatabase(projectId: string): Promise<number> {
     } else {
       // Fallback to in-memory
       const canvas = getProjectCanvas(projectId)
+      
+      // CRITICAL FIX: Clear existing objects in memory first to prevent merge issues
+      logger.info(`🧹 Clearing ${canvas.size} existing objects from memory before loading from database`, { projectId })
+      canvas.clear()
       
       for (const dbObj of dbObjects) {
         const canvasObj: CanvasObject = {
