@@ -94,12 +94,6 @@ export async function processAICommand(
   }
 }
 
-// Helper function to get unique shape types from objects
-function getUniqueTypes(objects: CanvasObject[]): string[] {
-  const types = new Set(objects.map(obj => obj.type));
-  return Array.from(types);
-}
-
 // Validate that AI service is available (backend handles the API key)
 export function isAIConfigured(): boolean {
   // AI is configured on the backend, so we assume it's available
